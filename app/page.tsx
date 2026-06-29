@@ -664,7 +664,21 @@ export default function Home() {
                         color: msg.role === "user"
                           ? (isDark ? "#93c5fd" : "#1e3a5f")
                           : (isDark ? "#fde68a" : "#431407"),
-                      }}
+                        // Override @tailwindcss/typography's own CSS vars so prose
+                        // uses our colour rather than its default dark-grey.
+                        // This is more reliable than fighting specificity/inheritance,
+                        // especially on WebKit / iOS Safari.
+                        ...(msg.role === "assistant" && {
+                          "--tw-prose-body":     isDark ? "#fde68a" : "#431407",
+                          "--tw-prose-headings": isDark ? "#fde68a" : "#431407",
+                          "--tw-prose-bold":     isDark ? "#fde68a" : "#431407",
+                          "--tw-prose-counters": isDark ? "#fde68a" : "#431407",
+                          "--tw-prose-bullets":  isDark ? "#fde68a" : "#431407",
+                          "--tw-prose-quotes":   isDark ? "#fde68a" : "#431407",
+                          "--tw-prose-code":     isDark ? "#fde68a" : "#431407",
+                          "--tw-prose-links":    isDark ? "#93c5fd" : "#3b82f6",
+                        }),
+                      } as React.CSSProperties}
                         className={msg.role === "assistant" ? "prose prose-sm max-w-none [&_p]:my-0 [&_ul]:my-1 [&_ol]:my-1 [&_*]:!text-inherit" : ""}
                       >
                         {msg.role === "user" ? (
