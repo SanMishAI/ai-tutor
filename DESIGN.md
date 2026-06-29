@@ -192,7 +192,7 @@ Home (page.tsx)
         ├── {mode === "chat"}  →  Notebook UI
         │       └── ruled paper bg + Caveat font
         │           ├── "You" entries  (ink blue / sky in dark)
-        │           └── "Tutor" entries (dark brown / amber in dark)
+        │           └── "Tutor" entries (dark brown / white in dark)
         │
         ├── {mode === "practice"}  →  Chat bubble UI
         │
@@ -252,8 +252,8 @@ Font: **Caveat** (Google Fonts, loaded via Next.js `next/font/google`, exposed a
 |------|-----------|----------|
 | You (label) | `#6366f1` indigo | `#818cf8` indigo-400 |
 | You (text) | `#1e3a5f` deep blue | `#93c5fd` sky-300 |
-| Tutor (label) | `#b45309` amber-700 | `#f59e0b` amber-500 |
-| Tutor (text) | `#431407` dark brown | `#fde68a` amber-100 |
+| Tutor (label) | `#b45309` amber-700 | `#ffffff` white |
+| Tutor (text) | `#431407` dark brown | `#ffffff` white |
 
 Loading state: animated ✏️ and blinking cursor `|` in tutor ink colour.
 
