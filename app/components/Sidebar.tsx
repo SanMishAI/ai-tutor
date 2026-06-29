@@ -31,13 +31,23 @@ export default function Sidebar({ open, conversations, activeId, onSelect, onNew
 
   return (
     <aside className="fixed sm:relative inset-y-0 left-0 z-50 w-72 sm:w-64 shrink-0 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 flex flex-col overflow-hidden shadow-xl sm:shadow-none">
-      <div className="p-3 border-b border-gray-100 dark:border-gray-800">
+      <div className="p-3 border-b border-gray-100 dark:border-gray-800 flex gap-2">
         <button
           onClick={onNew}
-          className="w-full bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors"
+          className="flex-1 bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors"
         >
           + New Chat
         </button>
+        {/* Close button — visible on mobile only */}
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="sm:hidden px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 text-sm transition-colors"
+            aria-label="Close sidebar"
+          >
+            ✕
+          </button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-2 space-y-1">

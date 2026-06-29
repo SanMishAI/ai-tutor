@@ -329,12 +329,23 @@ export default function Home() {
 
   useEffect(() => {
     setConversations(loadConversations())
-    if (window.innerWidth >= 640) setSidebarOpen(true)
+
+    // Track the sm breakpoint (640px) so the sidebar follows orientation changes.
+    // Crossing below 640px forces it closed; crossing above reopens it.
+    const smMq = window.matchMedia("(min-width: 640px)")
+    setSidebarOpen(smMq.matches)
+    const smHandler = (e: MediaQueryListEvent) => setSidebarOpen(e.matches)
+    smMq.addEventListener("change", smHandler)
+
     const mq = window.matchMedia("(prefers-color-scheme: dark)")
     setIsDark(mq.matches)
     const handler = (e: MediaQueryListEvent) => setIsDark(e.matches)
     mq.addEventListener("change", handler)
-    return () => mq.removeEventListener("change", handler)
+
+    return () => {
+      smMq.removeEventListener("change", smHandler)
+      mq.removeEventListener("change", handler)
+    }
   }, [])
 
   useEffect(() => {
@@ -529,10 +540,10 @@ export default function Home() {
       {/* Body */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* Mobile backdrop */}
+        {/* Mobile backdrop — cursor-pointer required for iOS Safari touch events */}
         {sidebarOpen && (
           <div
-            className="fixed inset-0 bg-black/50 z-40 sm:hidden"
+            className="fixed inset-0 bg-black/50 z-40 sm:hidden cursor-pointer"
             onClick={() => setSidebarOpen(false)}
           />
         )}
