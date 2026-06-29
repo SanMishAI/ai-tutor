@@ -23,13 +23,14 @@ interface Props {
   onSelect: (id: string) => void
   onNew: () => void
   onDelete: (id: string) => void
+  onClose?: () => void
 }
 
-export default function Sidebar({ open, conversations, activeId, onSelect, onNew, onDelete }: Props) {
+export default function Sidebar({ open, conversations, activeId, onSelect, onNew, onDelete, onClose }: Props) {
   if (!open) return null
 
   return (
-    <aside className="w-64 shrink-0 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 flex flex-col overflow-hidden">
+    <aside className="fixed sm:relative inset-y-0 left-0 z-50 w-72 sm:w-64 shrink-0 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 flex flex-col overflow-hidden shadow-xl sm:shadow-none">
       <div className="p-3 border-b border-gray-100 dark:border-gray-800">
         <button
           onClick={onNew}
@@ -48,7 +49,7 @@ export default function Sidebar({ open, conversations, activeId, onSelect, onNew
           [...conversations].reverse().map((c) => (
             <div
               key={c.id}
-              onClick={() => onSelect(c.id)}
+              onClick={() => { onSelect(c.id); onClose?.() }}
               className={`group relative rounded-xl px-3 py-2.5 cursor-pointer transition-colors ${
                 activeId === c.id
                   ? "bg-indigo-50 dark:bg-indigo-950"

@@ -24,6 +24,12 @@ export const metadata: Metadata = {
   description: "Sharpen. Sit. Succeed. AI-powered preparation for Australian selective exams.",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{

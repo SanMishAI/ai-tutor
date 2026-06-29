@@ -26,6 +26,7 @@
 11. [Environment Variables](#11-environment-variables)
 12. [Local Development Setup](#12-local-development-setup)
 13. [Roadmap](#13-roadmap)
+14. [Deployment](#14-deployment)
 
 ---
 
@@ -217,7 +218,7 @@ Flow:
   Wordmark clicked (in header) → setSplashDone(false) → splash again
 ```
 
-Design: full-screen dark (`#0a0b1a`), the illustrated `<Logo size={500}/>` centered, purple/cyan neon glow blobs, gradient button.
+Design: full-screen dark (`#0a0b1a`), the illustrated `<Logo />` centered (responsive: `min(70vw, 320px)` wide with `height: auto`), purple/cyan neon glow blobs (halved on mobile via `sm:` breakpoint), gradient button.
 
 ---
 
@@ -359,6 +360,8 @@ Review view: each wrong question gets a card with:
 ---
 
 ### 6.6 Chat History Sidebar
+
+**Responsive behaviour:** The sidebar is collapsed by default. On mount, `useEffect` checks `window.innerWidth >= 640` (Tailwind's `sm` breakpoint) and opens it automatically on desktop. On mobile it stays closed; the ☰ header button toggles it. When open on mobile, the sidebar renders as a `fixed` overlay (z-50) on top of the content with a semi-transparent backdrop (`bg-black/50`) behind it — tapping the backdrop or selecting a conversation closes it. On sm+ it is `relative` and inline, pushing the content to the right.
 
 All conversations are kept in `localStorage` under the key `tutormate_conversations` (array of `Conversation` objects).
 
@@ -508,7 +511,7 @@ All state lives in two places: **`page.tsx`** (app-level) and **`ExamView.tsx`**
 | `mode` | `"chat"\|"practice"\|"exam"` | Active mode tab |
 | `subject` | `string` | Selected exam type |
 | `yearLevel` | `string` | Selected year level |
-| `sidebarOpen` | `boolean` | Sidebar visibility |
+| `sidebarOpen` | `boolean` | Sidebar visibility (default `false`; set to `true` on mount if viewport ≥ 640px) |
 | `attemptCount` | `number` | Practice mode attempt counter |
 | `practiceActive` | `boolean` | Whether a practice problem is running |
 
@@ -581,12 +584,30 @@ Write happens in `saveMessages()` inside `page.tsx`, called after every AI respo
 
 Dark mode is driven by the OS `prefers-color-scheme` media query. Tailwind's `dark:` variants handle most components. The notebook's inline styles use a `isDark` React state value that is populated by `window.matchMedia` in a `useEffect`.
 
+### Responsive / mobile design
+
+The app is designed mobile-first at the Tailwind `sm` (640px) breakpoint.
+
+| Area | Mobile (< 640px) | Desktop (≥ 640px) |
+|------|-----------------|-------------------|
+| Viewport height | `h-[100dvh]` (dynamic, avoids iOS Safari toolbar) | same |
+| Splash logo | `min(70vw, 320px)` wide | 320px |
+| Splash glow blobs | `w-48 h-48` | `w-96 h-96` |
+| Sidebar | Fixed overlay, collapsed by default | Inline column, open by default |
+| Sidebar backdrop | Semi-transparent overlay, tap to close | Not rendered |
+| Main padding | `p-2` | `p-4` |
+| Wordmark font | `clamp(22px, 5.5vw, 34px)` | 34px |
+| Exam navigator buttons | `40×40px` (minimum touch target) | `32×32px` |
+| Review answer grid | `grid-cols-1` | `grid-cols-2` |
+| Practice controls | `flex-wrap` | same |
+| Viewport meta | `width=device-width, initialScale=1, maximumScale=1` | same |
+
 ### Logo components
 
 | Component | Usage |
 |-----------|-------|
-| `<Logo size={n}/>` | Illustrated SVG (student on stairs, flag, orb). Used in header (right, 56px) and splash (500px). Inline SVG with `<defs>` for gradients and neon glow filters. |
-| `<Wordmark />` | Pure HTML/CSS. "Select" in cyan→blue gradient, "Ed" in pink→purple gradient. "Sharpen · Sit · Succeed." in green/blue/amber. Used in header (left). Clicking returns to splash. |
+| `<Logo size={n} style={...}/>` | Illustrated SVG (student on stairs, flag, orb). Uses CSS `style` (not HTML attributes) so width can be overridden. Used in header (right, 56px) and splash (responsive). Inline SVG with `<defs>` for gradients and neon glow filters. |
+| `<Wordmark />` | Pure HTML/CSS. "Select" in cyan→blue gradient, "Ed" in pink→purple gradient. "Sharpen · Sit · Succeed." in green/blue/amber. Used in header (left). Clicking returns to splash. Font size uses `clamp()` for responsiveness. |
 
 ---
 
@@ -667,4 +688,33 @@ npx tsc --noEmit # Type-check without building
 
 ---
 
-*Document last updated: June 2026. Maintained alongside the codebase — update this file when adding new routes, components, or features.*
+---
+
+## 14. Deployment
+
+### Live URL
+
+| URL | Notes |
+|-----|-------|
+| `https://selected-ed.vercel.app` | Primary alias — share this one |
+| `https://ai-tutor-psi-three.vercel.app` | Original alias — also works |
+
+### Platform
+
+Hosted on **Vercel** (free hobby tier) under the `select-ed` team. All four API routes deploy as serverless functions (Dynamic rendering).
+
+### Environment variables on Vercel
+
+`ANTHROPIC_API_KEY` must be set in **Vercel dashboard → Project → Settings → Environment Variables** for Production, Preview, and Development environments. Without it, all AI calls fail with 500.
+
+### Deploy command
+
+```bash
+vercel --prod --yes
+```
+
+Run from the project root. Vercel auto-builds with `npm run build` and deploys the output.
+
+---
+
+*Document last updated: June 2026. Updated alongside the codebase whenever routes, components, or UX decisions change.*

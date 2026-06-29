@@ -61,7 +61,7 @@ function Wordmark() {
       <div
         className="font-black italic tracking-tight"
         style={{
-          fontSize: 34,
+          fontSize: "clamp(22px, 5.5vw, 34px)",
           fontFamily: '"Arial Black", Impact, system-ui',
           background: "linear-gradient(90deg, #00e5ff 0%, #4499ff 55%, #0055ff 100%)",
           WebkitBackgroundClip: "text",
@@ -93,9 +93,9 @@ function Wordmark() {
   )
 }
 
-function Logo({ size = 56 }: { size?: number }) {
+function Logo({ size = 56, style: extraStyle }: { size?: number; style?: React.CSSProperties }) {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 1024 1024" className="select-none shrink-0">
+    <svg xmlns="http://www.w3.org/2000/svg" style={{ width: size, height: size, ...extraStyle }} viewBox="0 0 1024 1024" className="select-none shrink-0">
       <defs>
         <radialGradient id="lgBg" cx="50%" cy="45%" r="60%">
           <stop offset="0%" stopColor="#1a1060" /><stop offset="100%" stopColor="#0a0b1a" />
@@ -318,7 +318,7 @@ export default function Home() {
   const [mode, setMode] = useState<"chat" | "practice" | "exam">("chat")
   const [subject, setSubject] = useState(SUBJECTS[0])
   const [yearLevel, setYearLevel] = useState(YEAR_LEVELS[SUBJECTS[0]][0])
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [attemptCount, setAttemptCount] = useState(0)
   const [practiceActive, setPracticeActive] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -329,6 +329,7 @@ export default function Home() {
 
   useEffect(() => {
     setConversations(loadConversations())
+    if (window.innerWidth >= 640) setSidebarOpen(true)
     const mq = window.matchMedia("(prefers-color-scheme: dark)")
     setIsDark(mq.matches)
     const handler = (e: MediaQueryListEvent) => setIsDark(e.matches)
@@ -477,14 +478,14 @@ export default function Home() {
   if (!splashDone) {
     return (
       <div
-        className="h-screen flex flex-col items-center justify-center gap-8 overflow-hidden"
+        className="relative h-[100dvh] flex flex-col items-center justify-center gap-6 sm:gap-8 overflow-hidden"
         style={{ backgroundColor: "#0a0b1a" }}
       >
         {/* background glow blobs */}
-        <div className="absolute w-96 h-96 rounded-full opacity-10 blur-3xl" style={{ background: "#7c3aed", top: "10%", left: "10%" }} />
-        <div className="absolute w-80 h-80 rounded-full opacity-10 blur-3xl" style={{ background: "#0ea5e9", bottom: "15%", right: "12%" }} />
+        <div className="absolute w-48 h-48 sm:w-96 sm:h-96 rounded-full opacity-10 blur-3xl" style={{ background: "#7c3aed", top: "10%", left: "10%" }} />
+        <div className="absolute w-40 h-40 sm:w-80 sm:h-80 rounded-full opacity-10 blur-3xl" style={{ background: "#0ea5e9", bottom: "15%", right: "12%" }} />
 
-        <Logo size={500} />
+        <Logo size={320} style={{ width: "min(70vw, 320px)", height: "auto" }} />
 
         <div className="flex flex-col items-center gap-4">
           <button
@@ -506,7 +507,7 @@ export default function Home() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-950 dark:via-gray-900 dark:to-indigo-950">
+    <div className="h-[100dvh] flex flex-col bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-950 dark:via-gray-900 dark:to-indigo-950">
 
       {/* Header */}
       <header className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 shadow-sm px-4 py-3 flex items-center justify-between shrink-0">
@@ -528,6 +529,14 @@ export default function Home() {
       {/* Body */}
       <div className="flex flex-1 overflow-hidden">
 
+        {/* Mobile backdrop */}
+        {sidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/50 z-40 sm:hidden"
+            onClick={() => setSidebarOpen(false)}
+          />
+        )}
+
         <Sidebar
           open={sidebarOpen}
           conversations={conversations}
@@ -535,10 +544,11 @@ export default function Home() {
           onSelect={selectConversation}
           onNew={startNewChat}
           onDelete={deleteConversation}
+          onClose={() => setSidebarOpen(false)}
         />
 
         {/* Main */}
-        <main className="flex flex-1 flex-col overflow-hidden p-4 gap-3">
+        <main className="flex flex-1 flex-col overflow-hidden p-2 sm:p-4 gap-3">
 
           {/* Controls */}
           <div className="flex gap-3 items-end shrink-0 flex-wrap">
@@ -713,7 +723,7 @@ export default function Home() {
 
           {/* Practice controls */}
           {mode !== "exam" && mode === "practice" && (
-            <div className="flex items-center gap-3 shrink-0">
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0 flex-wrap">
               <button
                 onClick={getPracticeProblem}
                 disabled={loading}

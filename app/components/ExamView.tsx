@@ -234,7 +234,7 @@ export default function ExamView({ subject, yearLevel }: { subject: string; year
               <div className="text-sm text-gray-800 dark:text-gray-100 prose prose-sm dark:prose-invert max-w-none">
                 <MD>{r.question?.text ?? ""}</MD>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="bg-red-50 dark:bg-red-950 rounded-xl p-3">
                   <p className="text-xs font-semibold text-red-600 dark:text-red-400 mb-1">Your answer ✗</p>
                   <p className="text-sm text-gray-700 dark:text-gray-300">{answers[r.id] || "No answer"}</p>
@@ -367,7 +367,7 @@ export default function ExamView({ subject, yearLevel }: { subject: string; year
     <div className="flex flex-col flex-1 overflow-hidden gap-3">
 
       {/* Timer bar */}
-      <div className={`flex items-center justify-between px-4 py-2 rounded-xl shrink-0 border ${
+      <div className={`flex items-center justify-between gap-2 px-3 sm:px-4 py-2 rounded-xl shrink-0 border ${
         timeLeft <= 120
           ? "bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800"
           : "bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800"
@@ -402,7 +402,7 @@ export default function ExamView({ subject, yearLevel }: { subject: string; year
           <button
             key={i}
             onClick={() => setCurrentQ(i)}
-            className={`w-8 h-8 rounded-lg text-xs font-semibold transition-colors ${
+            className={`w-10 h-10 sm:w-8 sm:h-8 rounded-lg text-xs font-semibold transition-colors ${
               i === currentQ
                 ? "bg-indigo-600 dark:bg-indigo-500 text-white ring-2 ring-indigo-300 dark:ring-indigo-400"
                 : answers[questions[i].id] !== undefined
