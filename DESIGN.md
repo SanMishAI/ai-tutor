@@ -27,6 +27,7 @@
 12. [Local Development Setup](#12-local-development-setup)
 13. [Roadmap](#13-roadmap)
 14. [Deployment](#14-deployment)
+15. [About Page](#15-about-page)
 
 ---
 
@@ -714,6 +715,37 @@ vercel --prod --yes
 ```
 
 Run from the project root. Vercel auto-builds with `npm run build` and deploys the output.
+
+---
+
+## 15. About Page
+
+**Route:** `/about`  
+**File:** `app/about/page.tsx`  
+**Type:** Static server component (no client-side JS needed)
+
+### Purpose
+Standalone marketing/brand page telling the founder's story. Accessible via a subtle "About the founder" link on the splash screen.
+
+### Content
+| Section | Content |
+|---------|---------|
+| Hero | "Built by a dad. For every parent." headline + one-line hook |
+| Founder card | Name (Santrupta Mishra / San), title (Director, Global Consulting · Melbourne), avatar initial |
+| Origin Story | 4 paragraphs — son's exam prep, gap in the market, San building the solution |
+| Vision | Mission paragraph + 3 feature cards: Purpose-built, Low cost, Accessible |
+| CTA | "Start Learning →" button back to `/` |
+
+### Design
+- Always dark (`#0a0b1a` background) — matches splash aesthetic
+- Same glow blobs (purple top-left, blue bottom-right) as splash
+- Max width `max-w-2xl`, centred, `px-6 py-12`
+- Text: white headings, `slate-300` body, `slate-400` meta
+- Feature cards: `rgba(255,255,255,0.03)` background, `border-white/10`
+
+### Navigation
+- Splash screen → "About the founder" link (dim grey, small) below exam list
+- About page → "← Back to SelectEd" top-left, "Start Learning →" CTA at bottom
 
 ---
 
