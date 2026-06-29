@@ -1,4 +1,5 @@
 import Link from "next/link"
+import Image from "next/image"
 import type { Metadata } from "next"
 
 export const metadata: Metadata = {
@@ -43,11 +44,14 @@ export default function AboutPage() {
           style={{ background: "rgba(255,255,255,0.04)" }}
         >
           <div className="flex items-center gap-5">
-            <div
-              className="w-16 h-16 rounded-full flex items-center justify-center text-2xl font-black shrink-0 select-none"
-              style={{ background: "linear-gradient(135deg, #7c3aed, #0ea5e9)", fontFamily: '"Arial Black", Impact, system-ui' }}
-            >
-              S
+            <div className="w-20 h-20 rounded-full overflow-hidden shrink-0 ring-2 ring-white/20">
+              <Image
+                src="/san.jpeg"
+                alt="Santrupta Mishra"
+                width={80}
+                height={80}
+                className="w-full h-full object-cover"
+              />
             </div>
             <div>
               <p className="font-bold text-xl text-white">Santrupta Mishra</p>
