@@ -653,7 +653,7 @@ export default function Home() {
                         letterSpacing: "0.05em",
                         color: msg.role === "user"
                           ? (isDark ? "#818cf8" : "#6366f1")
-                          : (isDark ? "#f59e0b" : "#b45309"),
+                          : (isDark ? "#ffffff" : "#b45309"),
                         textTransform: "uppercase",
                       }}>
                         {msg.role === "user" ? "You" : "Tutor"}
@@ -663,19 +663,15 @@ export default function Home() {
                         lineHeight: "32px",
                         color: msg.role === "user"
                           ? (isDark ? "#93c5fd" : "#1e3a5f")
-                          : (isDark ? "#fde68a" : "#431407"),
-                        // Override @tailwindcss/typography's own CSS vars so prose
-                        // uses our colour rather than its default dark-grey.
-                        // This is more reliable than fighting specificity/inheritance,
-                        // especially on WebKit / iOS Safari.
+                          : (isDark ? "#ffffff" : "#431407"),
                         ...(msg.role === "assistant" && {
-                          "--tw-prose-body":     isDark ? "#fde68a" : "#431407",
-                          "--tw-prose-headings": isDark ? "#fde68a" : "#431407",
-                          "--tw-prose-bold":     isDark ? "#fde68a" : "#431407",
-                          "--tw-prose-counters": isDark ? "#fde68a" : "#431407",
-                          "--tw-prose-bullets":  isDark ? "#fde68a" : "#431407",
-                          "--tw-prose-quotes":   isDark ? "#fde68a" : "#431407",
-                          "--tw-prose-code":     isDark ? "#fde68a" : "#431407",
+                          "--tw-prose-body":     isDark ? "#ffffff" : "#431407",
+                          "--tw-prose-headings": isDark ? "#ffffff" : "#431407",
+                          "--tw-prose-bold":     isDark ? "#ffffff" : "#431407",
+                          "--tw-prose-counters": isDark ? "#ffffff" : "#431407",
+                          "--tw-prose-bullets":  isDark ? "#ffffff" : "#431407",
+                          "--tw-prose-quotes":   isDark ? "#ffffff" : "#431407",
+                          "--tw-prose-code":     isDark ? "#ffffff" : "#431407",
                           "--tw-prose-links":    isDark ? "#93c5fd" : "#3b82f6",
                         }),
                       } as React.CSSProperties}
@@ -693,8 +689,8 @@ export default function Home() {
                   ))}
                   {loading && (
                     <div style={{ paddingLeft: 80, paddingTop: 6 }}>
-                      <span style={{ fontSize: 11, fontFamily: "system-ui", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", color: isDark ? "#f59e0b" : "#b45309" }}>Tutor</span>
-                      <div style={{ fontSize: 22, color: isDark ? "#fde68a" : "#b45309" }}>
+                      <span style={{ fontSize: 11, fontFamily: "system-ui", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", color: isDark ? "#ffffff" : "#b45309" }}>Tutor</span>
+                      <div style={{ fontSize: 22, color: isDark ? "#ffffff" : "#b45309" }}>
                         <span className="animate-pulse">✏️</span>
                         <span className="animate-pulse" style={{ marginLeft: 4 }}>|</span>
                       </div>
