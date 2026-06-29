@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkMath from "remark-math"
 import rehypeKatex from "rehype-katex"
+import { SignInButton, UserButton, useUser } from "@clerk/nextjs"
 import Sidebar from "./components/Sidebar"
 import ExamView from "./components/ExamView"
 import type { Message, Conversation } from "./types"
@@ -90,6 +91,20 @@ function Wordmark() {
         <span style={{ color: "#d97706" }}>Succeed.</span>
       </div>
     </div>
+  )
+}
+
+function AuthButton() {
+  const { isSignedIn } = useUser()
+  if (isSignedIn) {
+    return <UserButton />
+  }
+  return (
+    <SignInButton mode="modal">
+      <button className="text-sm font-semibold px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors">
+        Sign in
+      </button>
+    </SignInButton>
   )
 }
 
@@ -543,7 +558,10 @@ export default function Home() {
             <Wordmark />
           </button>
         </div>
-        <Logo size={56} />
+        <div className="flex items-center gap-3">
+          <AuthButton />
+          <Logo size={56} />
+        </div>
       </header>
 
       {/* Body */}
