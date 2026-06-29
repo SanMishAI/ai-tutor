@@ -39,11 +39,12 @@ type Message = {
 
 export async function POST(request: Request) {
   try {
-    const { messages, subject, mode } = await request.json()
+    const { messages, subject, yearLevel, mode } = await request.json()
 
     const base = mode === "practice" ? PRACTICE_SYSTEM_PROMPT : SYSTEM_PROMPT
-    const systemPrompt = subject
-      ? `${base}\n\nThe student is preparing for: ${subject}`
+    const context = [subject, yearLevel].filter(Boolean).join(", ")
+    const systemPrompt = context
+      ? `${base}\n\nThe student is preparing for: ${context}`
       : base
 
     const response = await client.messages.create({

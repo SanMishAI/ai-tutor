@@ -11,3 +11,18 @@ export type Conversation = {
   mode: "chat" | "practice"
   createdAt: string
 }
+
+export type ExamQuestion = {
+  id: number
+  text: string
+  type: "multiple_choice" | "open_ended"
+  options?: string[]
+}
+
+export type GradedResult = {
+  id: number
+  question: ExamQuestion
+  correct: boolean
+  correctAnswer: string
+  explanation: string
+}
