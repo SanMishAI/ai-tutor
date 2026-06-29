@@ -482,8 +482,8 @@ export default function Home() {
         style={{ backgroundColor: "#0a0b1a" }}
       >
         {/* background glow blobs */}
-        <div className="absolute w-48 h-48 sm:w-96 sm:h-96 rounded-full opacity-10 blur-3xl" style={{ background: "#7c3aed", top: "10%", left: "10%" }} />
-        <div className="absolute w-40 h-40 sm:w-80 sm:h-80 rounded-full opacity-10 blur-3xl" style={{ background: "#0ea5e9", bottom: "15%", right: "12%" }} />
+        <div className="absolute w-48 h-48 sm:w-96 sm:h-96 rounded-full opacity-10 blur-3xl pointer-events-none" style={{ background: "#7c3aed", top: "10%", left: "10%" }} />
+        <div className="absolute w-40 h-40 sm:w-80 sm:h-80 rounded-full opacity-10 blur-3xl pointer-events-none" style={{ background: "#0ea5e9", bottom: "15%", right: "12%" }} />
 
         <Logo size={320} style={{ width: "min(70vw, 320px)", height: "auto" }} />
 
