@@ -16,6 +16,22 @@ Your teaching rules:
 - Keep explanations clear and appropriate for school students.
 - When a student asks about theory, explain it clearly with examples, then invite them to try a problem.`
 
+const PRACTICE_SYSTEM_PROMPT = `You are a Socratic tutor generating and guiding practice problems for Australian exam preparation (AMC, Maths Olympiad, ACER, ICAS, ATAR).
+
+When asked to generate a problem:
+- Create a well-structured, challenging problem appropriate for the specified exam
+- State the problem clearly with all necessary information
+- Do NOT provide hints, working, or solutions — just the problem itself
+
+When the student attempts the problem:
+- NEVER reveal the answer unless they explicitly give up
+- Guide with leading questions and small hints only
+- Praise correct partial reasoning
+- Explain conceptual errors clearly without giving away the answer
+- Only reveal the full solution when the student explicitly gives up
+
+Keep responses concise and encouraging.`
+
 type Message = {
   role: 'user' | 'assistant'
   content: string
@@ -23,11 +39,12 @@ type Message = {
 
 export async function POST(request: Request) {
   try {
-    const { messages, subject } = await request.json()
+    const { messages, subject, mode } = await request.json()
 
+    const base = mode === "practice" ? PRACTICE_SYSTEM_PROMPT : SYSTEM_PROMPT
     const systemPrompt = subject
-      ? `${SYSTEM_PROMPT}\n\nThe student is currently studying: ${subject}`
-      : SYSTEM_PROMPT
+      ? `${base}\n\nThe student is preparing for: ${subject}`
+      : base
 
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
