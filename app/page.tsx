@@ -654,7 +654,7 @@ export default function Home() {
                           ? (isDark ? "#93c5fd" : "#1e3a5f")
                           : (isDark ? "#fde68a" : "#431407"),
                       }}
-                        className={msg.role === "assistant" ? "prose prose-sm max-w-none [&_p]:my-0 [&_ul]:my-1 [&_ol]:my-1" : ""}
+                        className={msg.role === "assistant" ? "prose prose-sm max-w-none [&_p]:my-0 [&_ul]:my-1 [&_ol]:my-1 [&_*]:!text-inherit" : ""}
                       >
                         {msg.role === "user" ? (
                           <span>{msg.content}</span>
