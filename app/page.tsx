@@ -1,6 +1,9 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
+import ReactMarkdown from "react-markdown"
+import remarkMath from "remark-math"
+import rehypeKatex from "rehype-katex"
 
 const SUBJECTS = [
   "Australian Mathematics Competition (AMC)",
@@ -103,12 +106,19 @@ export default function Home() {
               {msg.role === "assistant" && (
                 <span className="mr-2 mt-1 text-lg shrink-0">🤖</span>
               )}
-              <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap leading-relaxed shadow-sm ${
+              <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
                 msg.role === "user"
-                  ? "bg-indigo-600 text-white rounded-br-sm"
-                  : "bg-indigo-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-bl-sm"
+                  ? "bg-indigo-600 text-white rounded-br-sm whitespace-pre-wrap"
+                  : "bg-indigo-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-bl-sm prose prose-sm dark:prose-invert max-w-none"
               }`}>
-                {msg.content}
+                {msg.role === "user" ? msg.content : (
+                  <ReactMarkdown
+                    remarkPlugins={[remarkMath]}
+                    rehypePlugins={[rehypeKatex]}
+                  >
+                    {msg.content}
+                  </ReactMarkdown>
+                )}
               </div>
               {msg.role === "user" && (
                 <span className="ml-2 mt-1 text-lg shrink-0">🧑‍🎓</span>
