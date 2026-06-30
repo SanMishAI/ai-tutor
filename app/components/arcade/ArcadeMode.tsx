@@ -65,6 +65,8 @@ export default function ArcadeMode({ exam, yearLevel, onSwitchToPractice, onSwit
   const [selected, setSelected]         = useState<string | null>(null)
   const [answerState, setAnswerState]   = useState<"idle" | "correct" | "wrong">("idle")
   const [showHint, setShowHint]         = useState(false)
+  // Tracks question text already asked in this stage so the API can avoid repeats
+  const [askedQuestions, setAskedQuestions] = useState<string[]>([])
 
   // Load Press Start 2P font once
   useEffect(() => {
@@ -87,19 +89,21 @@ export default function ArcadeMode({ exam, yearLevel, onSwitchToPractice, onSwit
       .finally(() => setProgLoading(false))
   }, [exam, isSignedIn])
 
-  async function loadQuestion(chapter: string, stage: number, idx: number) {
+  async function loadQuestion(chapter: string, stage: number, idx: number, prevAsked: string[]) {
     setQLoading(true); setQError(false)
     setQuestion(null); setSelected(null); setAnswerState("idle"); setShowHint(false); setWrongOnQ(0)
     try {
       const r = await fetch("/api/arcade/question", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ exam, yearLevel, chapter, stage, questionIndex: idx }),
+        body: JSON.stringify({ exam, yearLevel, chapter, stage, questionIndex: idx, askedQuestions: prevAsked }),
       })
       if (!r.ok) throw new Error()
       const d = await r.json()
       if (!d.question) throw new Error()
       setQuestion(d)
+      // Register this question text so the next call can avoid repeating it
+      setAskedQuestions(prev => [...prev, d.question])
     } catch {
       setQError(true)
     }
@@ -109,8 +113,9 @@ export default function ArcadeMode({ exam, yearLevel, onSwitchToPractice, onSwit
   function enterStage(chapter: string, stage: 1 | 2 | 3) {
     setActiveChapter(chapter); setActiveStage(stage)
     setHearts(3); setStageXP(0); setQuestionIndex(0)
+    setAskedQuestions([])
     setScreen("mining")
-    loadQuestion(chapter, stage, 0)
+    loadQuestion(chapter, stage, 0, [])
   }
 
   function selectAnswer(opt: string) {
@@ -134,14 +139,14 @@ export default function ArcadeMode({ exam, yearLevel, onSwitchToPractice, onSwit
     const next = questionIndex + 1
     if (next >= 5) { finishStage(); return }
     setQuestionIndex(next)
-    loadQuestion(activeChapter!, activeStage!, next)
+    loadQuestion(activeChapter!, activeStage!, next, askedQuestions)
   }
 
   function skipQuestion() {
     const next = questionIndex + 1
     if (next >= 5) { finishStage(); return }
     setQuestionIndex(next)
-    loadQuestion(activeChapter!, activeStage!, next)
+    loadQuestion(activeChapter!, activeStage!, next, askedQuestions)
   }
 
   function finishStage() {
@@ -312,7 +317,7 @@ export default function ArcadeMode({ exam, yearLevel, onSwitchToPractice, onSwit
           {qError && (
             <div className="flex flex-col items-center gap-3 mt-4">
               <p className="text-red-400 text-sm" style={{ fontFamily: "system-ui" }}>Failed to load question</p>
-              <button onClick={() => loadQuestion(activeChapter!, activeStage!, questionIndex)}
+              <button onClick={() => loadQuestion(activeChapter!, activeStage!, questionIndex, askedQuestions)}
                 className="px-4 py-2 rounded-xl text-xs" style={{ ...PS2, background: "#374151", color: "#d1d5db", fontSize: 9 }}>
                 RETRY ↺
               </button>
