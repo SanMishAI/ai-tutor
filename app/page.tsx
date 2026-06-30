@@ -402,6 +402,9 @@ export default function Home() {
   const [tSubmitting, setTSubmitting] = useState(false)
   const [tDone, setTDone] = useState(false)
   const [tError, setTError] = useState("")
+  const [captchaQ, setCaptchaQ] = useState<[number, number]>([3, 5])
+  const [captchaA, setCaptchaA] = useState("")
+  const [tHoneypot, setTHoneypot] = useState("")
   const [faqOpen, setFaqOpen] = useState<number | null>(null)
 
   // Child session
@@ -444,6 +447,10 @@ export default function Home() {
   }, [])
 
   async function submitTestimonial() {
+    if (tHoneypot) return
+    if (parseInt(captchaA) !== captchaQ[0] + captchaQ[1]) {
+      setTError(`Verification failed: ${captchaQ[0]} + ${captchaQ[1]} = ?`); return
+    }
     setTSubmitting(true); setTError("")
     try {
       const res = await fetch("/api/testimonials", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(tForm) })
@@ -765,6 +772,43 @@ export default function Home() {
   if (!splashDone) {
     return (
       <div className="min-h-screen overflow-y-auto" style={{ backgroundColor: "#ffffff", color: "#0f172a" }}>
+        <style>{`
+          @keyframes marquee-scroll {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+          }
+          @keyframes float-symbol {
+            0%   { transform: translateY(0) rotate(0deg);   opacity: 0; }
+            12%  { opacity: 0.45; }
+            88%  { opacity: 0.18; }
+            100% { transform: translateY(-680px) rotate(22deg); opacity: 0; }
+          }
+          @keyframes pulse-orb {
+            0%, 100% { transform: scale(1);    opacity: 0.16; }
+            50%       { transform: scale(1.22); opacity: 0.28; }
+          }
+          @keyframes star-pop {
+            0%   { transform: scale(0) rotate(-15deg); opacity: 0; }
+            60%  { transform: scale(1.2) rotate(5deg);  opacity: 1; }
+            100% { transform: scale(1) rotate(0deg);   opacity: 1; }
+          }
+          @keyframes shake-x {
+            0%,100% { transform: translateX(0); }
+            20%     { transform: translateX(-8px); }
+            40%     { transform: translateX(8px); }
+            60%     { transform: translateX(-5px); }
+            80%     { transform: translateX(5px); }
+          }
+          @keyframes combo-pop {
+            0%   { transform: scale(0.6) translateY(8px); opacity: 0; }
+            60%  { transform: scale(1.15) translateY(-2px); opacity: 1; }
+            100% { transform: scale(1) translateY(0);       opacity: 1; }
+          }
+          @keyframes xp-flash {
+            0%,100% { color: #FACC15; }
+            50%     { color: #fff; text-shadow: 0 0 12px #FACC15; }
+          }
+        `}</style>
 
         {/* ── NAV ── */}
         <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-slate-100 shadow-sm">
@@ -773,10 +817,10 @@ export default function Home() {
               <img src="/selected-logo.svg" alt="SelectEd" style={{ width: 36, height: 36, objectFit: "contain" }} />
               <WordmarkLight />
             </div>
-            <div className="hidden sm:flex items-center gap-6 text-sm font-medium" style={{ color: "#64748b" }}>
-              <a href="/about" className="hover:text-slate-900 transition-colors">Our story</a>
-              <a href="/pricing" className="hover:text-slate-900 transition-colors">Pricing</a>
-              {isSignedIn && <a href="/parent" className="hover:text-slate-900 transition-colors">Parent dashboard</a>}
+            <div className="hidden sm:flex items-center gap-3 text-sm">
+              <a href="/about" className="font-semibold px-3 py-1.5 rounded-lg transition-all hover:bg-blue-50" style={{ color: "#0066CB" }}>Our story ↗</a>
+              <a href="/pricing" className="font-bold px-3 py-1.5 rounded-lg transition-all hover:opacity-90 shadow-sm" style={{ background: "#FDC800", color: "#000936" }}>Pricing</a>
+              {isSignedIn && <a href="/parent" className="font-medium hover:text-slate-900 transition-colors" style={{ color: "#64748b" }}>Parent dashboard</a>}
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
               <button onClick={() => setShowChildLogin(true)}
@@ -796,8 +840,9 @@ export default function Home() {
               ) : (
                 <>
                   <SignInButton mode="modal">
-                    <button className="text-sm font-medium px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors" style={{ color: "#475569" }}>
-                      Sign in
+                    <button className="text-sm font-bold px-4 py-2 rounded-lg border-2 transition-all hover:bg-[#0066CB] hover:text-white hover:shadow-md"
+                      style={{ borderColor: "#0066CB", color: "#0066CB", background: "rgba(0,102,203,0.04)" }}>
+                      Sign in →
                     </button>
                   </SignInButton>
                   <button onClick={() => setSplashDone(true)}
@@ -814,8 +859,23 @@ export default function Home() {
         {/* ── HERO ── */}
         <div className="relative overflow-hidden" style={{ background: "linear-gradient(155deg, #f8fafc 0%, #eff6ff 55%, #fff7ed 100%)" }}>
           <div className="absolute inset-0 pointer-events-none overflow-hidden">
-            <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full blur-3xl opacity-20" style={{ background: "#56DBFF" }} />
-            <div className="absolute -bottom-16 -left-16 w-72 h-72 rounded-full blur-3xl opacity-15" style={{ background: "#FDC800" }} />
+            <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full blur-3xl" style={{ background: "#56DBFF", animation: "pulse-orb 7s ease-in-out infinite" }} />
+            <div className="absolute -bottom-16 -left-16 w-72 h-72 rounded-full blur-3xl" style={{ background: "#FDC800", animation: "pulse-orb 9s ease-in-out 2s infinite" }} />
+            <div className="absolute top-1/2 left-1/3 w-64 h-64 rounded-full blur-3xl" style={{ background: "#E34C00", animation: "pulse-orb 11s ease-in-out 4s infinite", opacity: 0.08 }} />
+            {["π", "∑", "√", "∫", "α", "β", "×", "≠", "∞", "Δ", "θ", "λ", "÷", "²", "⁻¹", "≈"].map((sym, i) => (
+              <div key={sym} className="absolute select-none font-black"
+                style={{
+                  left: `${(i * 6.25) % 94}%`,
+                  bottom: `-20px`,
+                  fontSize: `${14 + (i % 4) * 7}px`,
+                  opacity: 0,
+                  color: ["#0066CB", "#FDC800", "#E34C00", "#059669", "#7C3AED"][i % 5],
+                  animation: `float-symbol ${7 + (i % 6)}s ease-in ${(i * 0.55) % 5}s infinite`,
+                  zIndex: 0,
+                }}>
+                {sym}
+              </div>
+            ))}
           </div>
           <div className="relative max-w-6xl mx-auto px-5 sm:px-8 py-14 sm:py-20 lg:py-24">
             <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
@@ -855,28 +915,32 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Right: exam coverage badges */}
+              {/* Right: visual exam badge grid */}
               <div className="hidden lg:block">
                 <div className="rounded-2xl border border-slate-200 bg-white/80 backdrop-blur-sm shadow-sm p-6">
                   <p className="text-xs font-bold tracking-widest uppercase mb-4" style={{ color: "#64748b" }}>Supports preparation for</p>
-                  <div className="grid grid-cols-2 gap-2.5">
+                  <div className="grid grid-cols-4 gap-3">
                     {[
-                      { abbr: "AMC", full: "Australian Mathematics Competition", years: "Yr 3–12", color: "#0066CB", bg: "#EFF6FF" },
-                      { abbr: "Olympiad", full: "Maths Olympiad", years: "Yr 4–10", color: "#7C3AED", bg: "#F5F3FF" },
-                      { abbr: "ACER", full: "ACER Selective Entry", years: "Yr 3–9", color: "#DB2777", bg: "#FDF2F8" },
-                      { abbr: "ICAS", full: "International Competitions and Assessments", years: "Yr 2–12", color: "#059669", bg: "#ECFDF5" },
-                      { abbr: "ATAR", full: "Australian Tertiary Admission Rank", years: "Yr 11–12", color: "#D97706", bg: "#FFFBEB" },
-                      { abbr: "NAPLAN", full: "National Assessment Program", years: "Yr 3–9", color: "#E34C00", bg: "#FFF7ED" },
-                      { abbr: "Bebras", full: "Bebras Computing Challenge", years: "Yr 3–12", color: "#0891B2", bg: "#F0F9FF" },
-                      { abbr: "KSF", full: "Kangourou sans frontières", years: "Yr 3–12", color: "#9333EA", bg: "#FAF5FF" },
-                    ].map(({ abbr, full, years, color, bg }) => (
-                      <div key={abbr} className="flex items-start gap-2.5 rounded-xl p-3" style={{ background: bg }}>
-                        <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: color }} />
-                        <div className="min-w-0">
-                          <p className="font-black text-sm leading-none mb-0.5" style={{ color }}>{abbr}</p>
-                          <p className="text-xs leading-snug truncate" style={{ color: "#64748b" }}>{full}</p>
-                          <p className="text-xs mt-0.5 font-medium" style={{ color: "#94a3b8" }}>{years}</p>
+                      { abbr: "AMC",    icon: "🔢", label: "Maths Competition", years: "Yr 3–12",  color: "#0066CB", bg: "#EFF6FF" },
+                      { abbr: "OLY",    icon: "🏆", label: "Maths Olympiad",    years: "Yr 4–10",  color: "#7C3AED", bg: "#F5F3FF" },
+                      { abbr: "ACER",   icon: "📐", label: "Selective Entry",   years: "Yr 3–9",   color: "#DB2777", bg: "#FDF2F8" },
+                      { abbr: "ICAS",   icon: "🌟", label: "Intl Assessments",  years: "Yr 2–12",  color: "#059669", bg: "#ECFDF5" },
+                      { abbr: "ATAR",   icon: "🎓", label: "Tertiary Rank",     years: "Yr 11–12", color: "#D97706", bg: "#FFFBEB" },
+                      { abbr: "NAP",    icon: "📚", label: "NAPLAN",            years: "Yr 3–9",   color: "#E34C00", bg: "#FFF7ED" },
+                      { abbr: "BEB",    icon: "💻", label: "Bebras Computing",  years: "Yr 3–12",  color: "#0891B2", bg: "#F0F9FF" },
+                      { abbr: "KSF",    icon: "🦘", label: "Kangourou",         years: "Yr 3–12",  color: "#9333EA", bg: "#FAF5FF" },
+                    ].map(({ abbr, icon, label, years, color, bg }) => (
+                      <div key={abbr} className="flex flex-col items-center gap-1.5 rounded-xl p-2.5 text-center transition-transform hover:scale-105"
+                        style={{ background: bg, border: `1.5px solid ${color}25` }}>
+                        <div className="w-11 h-11 rounded-full flex flex-col items-center justify-center shadow-sm text-white font-black"
+                          style={{ background: `linear-gradient(135deg, ${color}, ${color}cc)` }}>
+                          <span style={{ fontSize: 11, letterSpacing: "-0.5px", lineHeight: 1.1 }}>{abbr}</span>
                         </div>
+                        <span className="text-lg leading-none">{icon}</span>
+                        <p className="font-semibold leading-snug" style={{ fontSize: 9, color: "#334155" }}>{label}</p>
+                        <span className="font-bold rounded-full px-1.5 py-0.5" style={{ fontSize: 8, background: `${color}18`, color }}>
+                          {years}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -906,6 +970,32 @@ export default function Home() {
             ))}
           </div>
         </div>
+
+        {/* ── ROLLING BANNER ── */}
+        {(() => {
+          const items = [
+            "⭐⭐⭐⭐⭐  \"My son jumped from mid-band to Band 6 in ICAS Maths\" — Priya R., Sydney",
+            "AMC  ·  Maths Olympiad  ·  ACER  ·  ICAS  ·  ATAR  ·  NAPLAN  ·  Bebras  ·  KSF",
+            "⭐⭐⭐⭐⭐  \"The only thing that kept my daughter engaged through AMC prep\" — James T., Melbourne",
+            "20 free questions every day  ·  No credit card needed  ·  Cancel any time",
+            "⭐⭐⭐⭐⭐  \"A fraction of the cost of a private tutor\" — Amira K., Brisbane",
+            "Socratic AI Tutor  ·  Gamified Adventure Mode  ·  Timed Mock Exams  ·  Year 2–12",
+            "⭐⭐⭐⭐⭐  \"The AI tutor is genuinely patient — it never hands over the answer\"",
+            "7-day free trial  ·  Then $9.99/month AUD  ·  Cancel any time before day 7",
+          ]
+          const doubled = [...items, ...items]
+          return (
+            <div style={{ background: "#000936", overflow: "hidden", padding: "11px 0", borderTop: "1px solid rgba(253,200,0,0.2)", borderBottom: "1px solid rgba(253,200,0,0.2)" }}>
+              <div style={{ display: "flex", animation: "marquee-scroll 55s linear infinite", gap: 0, width: "max-content" }}>
+                {doubled.map((item, i) => (
+                  <span key={i} style={{ fontFamily: "system-ui", fontSize: 12.5, fontWeight: 500, color: i % 2 === 0 ? "#FDC800" : "#93c5fd", whiteSpace: "nowrap", paddingLeft: 36, paddingRight: 0 }}>
+                    {item}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )
+        })()}
 
         {/* ── PROBLEM ── */}
         <div className="py-16 sm:py-20" style={{ background: "#f8fafc" }}>
@@ -970,19 +1060,26 @@ export default function Home() {
             <p className="text-center text-base max-w-xl mx-auto mb-12 leading-relaxed" style={{ color: "#64748b" }}>Questions, difficulty, and topics calibrated for each exam and year level — not generic AI output.</p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {[
-                { short: "AMC", full: "Australian Mathematics Competition", years: "Year 3–12", color: "#0066CB" },
-                { short: "Olympiad", full: "Maths Olympiad", years: "Year 4–10", color: "#7C3AED" },
-                { short: "ACER", full: "ACER Selective", years: "Year 3–9", color: "#DB2777" },
-                { short: "ICAS", full: "ICAS", years: "Year 2–12", color: "#059669" },
-                { short: "ATAR", full: "ATAR", years: "Year 11–12", color: "#D97706" },
-                { short: "NAPLAN", full: "NAPLAN", years: "Year 3, 5, 7, 9", color: "#E34C00" },
-                { short: "Bebras", full: "Bebras Computing", years: "Year 3–12", color: "#0891B2" },
-                { short: "KSF", full: "Kangourou sans frontières", years: "Year 3–12", color: "#9333EA" },
-              ].map(({ short, full, years, color }) => (
-                <div key={short} className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">
-                  <p className="font-black text-xl mb-1" style={{ color }}>{short}</p>
-                  <p className="text-slate-700 text-sm font-medium leading-snug">{full}</p>
-                  <p className="text-xs mt-1" style={{ color: "#94a3b8" }}>{years}</p>
+                { short: "AMC",     abbr: "AMC",  icon: "🔢", full: "Australian Mathematics Competition", years: "Year 3–12",  color: "#0066CB", bg: "#EFF6FF" },
+                { short: "Olympiad",abbr: "OLY",  icon: "🏆", full: "Maths Olympiad",                    years: "Year 4–10",  color: "#7C3AED", bg: "#F5F3FF" },
+                { short: "ACER",    abbr: "ACER", icon: "📐", full: "ACER Selective Entry",               years: "Year 3–9",   color: "#DB2777", bg: "#FDF2F8" },
+                { short: "ICAS",    abbr: "ICAS", icon: "🌟", full: "International Competitions",         years: "Year 2–12",  color: "#059669", bg: "#ECFDF5" },
+                { short: "ATAR",    abbr: "ATAR", icon: "🎓", full: "Australian Tertiary Rank",           years: "Year 11–12", color: "#D97706", bg: "#FFFBEB" },
+                { short: "NAPLAN",  abbr: "NAP",  icon: "📚", full: "National Assessment Program",        years: "Yr 3, 5, 7, 9", color: "#E34C00", bg: "#FFF7ED" },
+                { short: "Bebras",  abbr: "BEB",  icon: "💻", full: "Bebras Computing Challenge",         years: "Year 3–12",  color: "#0891B2", bg: "#F0F9FF" },
+                { short: "KSF",     abbr: "KSF",  icon: "🦘", full: "Kangourou sans frontières",          years: "Year 3–12",  color: "#9333EA", bg: "#FAF5FF" },
+              ].map(({ short, abbr, icon, full, years, color, bg }) => (
+                <div key={short} className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm flex flex-col items-center text-center gap-2 hover:shadow-md transition-shadow">
+                  <div className="w-14 h-14 rounded-full flex items-center justify-center font-black text-white shadow-md"
+                    style={{ background: `linear-gradient(135deg, ${color}, ${color}bb)` }}>
+                    <span style={{ fontSize: abbr.length > 3 ? 10 : 13, letterSpacing: "-0.5px" }}>{abbr}</span>
+                  </div>
+                  <span className="text-2xl">{icon}</span>
+                  <p className="font-black text-sm leading-snug" style={{ color }}>{short}</p>
+                  <p className="text-slate-500 text-xs leading-snug">{full}</p>
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: bg, color }}>
+                    {years}
+                  </span>
                 </div>
               ))}
             </div>
@@ -1043,7 +1140,10 @@ export default function Home() {
                 {/* Submit CTA / Form */}
                 {!showTestimonialForm && !tDone && (
                   <div className="text-center">
-                    <button onClick={() => setShowTestimonialForm(true)}
+                    <button onClick={() => {
+                      const a = Math.ceil(Math.random() * 9), b = Math.ceil(Math.random() * 9)
+                      setCaptchaQ([a, b]); setCaptchaA(""); setTHoneypot(""); setShowTestimonialForm(true)
+                    }}
                       className="px-6 py-3 rounded-xl font-bold text-sm border-2 transition-all hover:bg-slate-50"
                       style={{ borderColor: "#000936", color: "#000936" }}>
                       Share your experience →
@@ -1087,6 +1187,22 @@ export default function Home() {
                         placeholder="Tell other parents what you thought of SelectEd..."
                         className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none" />
                     </div>
+                    {/* Honeypot – invisible to humans, filled by bots */}
+                    <input aria-hidden="true" tabIndex={-1} value={tHoneypot} onChange={e => setTHoneypot(e.target.value)}
+                      style={{ position: "absolute", left: -9999, width: 1, height: 1, opacity: 0 }} autoComplete="off" />
+
+                    {/* Human verification */}
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 space-y-2">
+                      <p className="text-xs font-bold" style={{ color: "#475569" }}>
+                        🤖 Quick verification — What is <span style={{ color: "#0066CB" }}>{captchaQ[0]} + {captchaQ[1]}</span>?
+                      </p>
+                      <input
+                        type="number" value={captchaA} onChange={e => setCaptchaA(e.target.value)}
+                        placeholder="Your answer"
+                        className="w-28 rounded-lg border border-slate-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+                      />
+                    </div>
+
                     <div className="flex gap-3">
                       <button onClick={submitTestimonial} disabled={tSubmitting}
                         className="flex-1 py-3 rounded-xl font-bold text-sm transition-all hover:opacity-90 disabled:opacity-50"

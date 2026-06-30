@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useUser } from "@clerk/nextjs"
 import { CoalOreBlock, IronOreBlock, DiamondOreBlock, GoldBlock, BedrockBlock } from "./blocks"
 
@@ -17,6 +17,19 @@ const WORLDS: Record<string, { shortName: string; color: string; chapters: strin
 
 const STAGE_LABEL = ["", "⛏️ Easy", "🪨 Medium", "💎 Hard"]
 const STAGE_XP    = [0, 10, 15, 20]
+
+const RANKS = [
+  { min: 0,    max: 99,   title: "🪵 Novice",   color: "#92400e" },
+  { min: 100,  max: 499,  title: "🪨 Explorer",  color: "#64748b" },
+  { min: 500,  max: 999,  title: "⚙️ Scholar",   color: "#b45309" },
+  { min: 1000, max: 1999, title: "🪙 Expert",    color: "#d97706" },
+  { min: 2000, max: 4999, title: "💎 Champion",  color: "#0891b2" },
+  { min: 5000, max: Infinity, title: "👑 Legend", color: "#7c3aed" },
+]
+
+function getRank(xp: number) {
+  return RANKS.find(r => xp >= r.min && xp <= r.max) ?? RANKS[0]
+}
 
 type QuestionData = {
   question: string
@@ -44,31 +57,37 @@ export default function ArcadeMode({ exam, yearLevel, onSwitchToPractice, onSwit
   const world = WORLDS[exam] ?? WORLDS["Australian Mathematics Competition (AMC)"]
   const { isSignedIn } = useUser()
 
-  // World / progress
-  const [progress, setProgress]     = useState<WorldProgress>({})
-  const [totalXP, setTotalXP]       = useState(0)
+  const [progress, setProgress]       = useState<WorldProgress>({})
+  const [totalXP, setTotalXP]         = useState(0)
   const [progLoading, setProgLoading] = useState(true)
 
-  // Navigation
-  const [screen, setScreen]             = useState<Screen>("worldmap")
+  const [screen, setScreen]               = useState<Screen>("worldmap")
   const [activeChapter, setActiveChapter] = useState<string | null>(null)
-  const [activeStage, setActiveStage]   = useState<1 | 2 | 3 | null>(null)
+  const [activeStage, setActiveStage]     = useState<1 | 2 | 3 | null>(null)
 
-  // Mining session
   const [question, setQuestion]         = useState<QuestionData | null>(null)
   const [qLoading, setQLoading]         = useState(false)
   const [qError, setQError]             = useState(false)
   const [questionIndex, setQuestionIndex] = useState(0)
   const [hearts, setHearts]             = useState(3)
-  const [wrongOnQ, setWrongOnQ]         = useState(0)   // wrong answers on THIS question (drives cracks)
+  const [wrongOnQ, setWrongOnQ]         = useState(0)
   const [stageXP, setStageXP]           = useState(0)
   const [selected, setSelected]         = useState<string | null>(null)
   const [answerState, setAnswerState]   = useState<"idle" | "correct" | "wrong">("idle")
   const [showHint, setShowHint]         = useState(false)
-  // Tracks question text already asked in this stage so the API can avoid repeats
   const [askedQuestions, setAskedQuestions] = useState<string[]>([])
 
-  // Load Press Start 2P font once
+  // Game-feel state
+  const [combo, setCombo]         = useState(0)
+  const [maxCombo, setMaxCombo]   = useState(0)
+  const [comboAnim, setComboAnim] = useState(false)
+  const [shaking, setShaking]     = useState(false)
+  const [xpFlash, setXpFlash]     = useState(false)
+  const [starsAnim, setStarsAnim] = useState<boolean[]>([false, false, false])
+
+  // suppress unused import warning — useRef is used for future extensions
+  const _ref = useRef<null>(null); void _ref
+
   useEffect(() => {
     const id = "press-start-2p"
     if (!document.getElementById(id)) {
@@ -79,7 +98,6 @@ export default function ArcadeMode({ exam, yearLevel, onSwitchToPractice, onSwit
     }
   }, [])
 
-  // Load progress from API
   useEffect(() => {
     if (!isSignedIn) { setProgLoading(false); return }
     fetch(`/api/arcade/progress?exam=${encodeURIComponent(exam)}`)
@@ -91,7 +109,7 @@ export default function ArcadeMode({ exam, yearLevel, onSwitchToPractice, onSwit
 
   async function loadQuestion(chapter: string, stage: number, idx: number, prevAsked: string[]) {
     setQLoading(true); setQError(false)
-    setQuestion(null); setSelected(null); setAnswerState("idle"); setShowHint(false); setWrongOnQ(0)
+    setQuestion(null); setSelected(null); setAnswerState("idle"); setShowHint(false); setWrongOnQ(0); setShaking(false)
     try {
       const r = await fetch("/api/arcade/question", {
         method: "POST",
@@ -102,20 +120,24 @@ export default function ArcadeMode({ exam, yearLevel, onSwitchToPractice, onSwit
       const d = await r.json()
       if (!d.question) throw new Error()
       setQuestion(d)
-      // Register this question text so the next call can avoid repeating it
       setAskedQuestions(prev => [...prev, d.question])
-    } catch {
-      setQError(true)
-    }
+    } catch { setQError(true) }
     setQLoading(false)
   }
 
   function enterStage(chapter: string, stage: 1 | 2 | 3) {
     setActiveChapter(chapter); setActiveStage(stage)
-    setHearts(3); setStageXP(0); setQuestionIndex(0)
+    setHearts(3); setStageXP(0); setQuestionIndex(0); setCombo(0); setMaxCombo(0)
+    setStarsAnim([false, false, false])
     setAskedQuestions([])
     setScreen("mining")
     loadQuestion(chapter, stage, 0, [])
+  }
+
+  function comboMultiplier(c: number) {
+    if (c >= 5) return 3
+    if (c >= 3) return 2
+    return 1
   }
 
   function selectAnswer(opt: string) {
@@ -123,7 +145,14 @@ export default function ArcadeMode({ exam, yearLevel, onSwitchToPractice, onSwit
     const letter = opt.charAt(0).toUpperCase()
     setSelected(opt)
     if (letter === question.correct) {
-      setStageXP(x => x + STAGE_XP[activeStage ?? 1])
+      const newCombo = combo + 1
+      const mult = comboMultiplier(newCombo)
+      const xpEarned = STAGE_XP[activeStage ?? 1] * mult
+      setStageXP(x => x + xpEarned)
+      setCombo(newCombo)
+      setMaxCombo(m => Math.max(m, newCombo))
+      setComboAnim(true); setTimeout(() => setComboAnim(false), 700)
+      setXpFlash(true); setTimeout(() => setXpFlash(false), 600)
       setAnswerState("correct")
     } else {
       const newHearts = hearts - 1
@@ -131,7 +160,9 @@ export default function ArcadeMode({ exam, yearLevel, onSwitchToPractice, onSwit
       setHearts(newHearts)
       setAnswerState("wrong")
       setShowHint(true)
-      if (newHearts <= 0) setTimeout(() => setScreen("game_over"), 1000)
+      setCombo(0)
+      setShaking(true); setTimeout(() => setShaking(false), 500)
+      if (newHearts <= 0) setTimeout(() => setScreen("game_over"), 900)
     }
   }
 
@@ -144,6 +175,7 @@ export default function ArcadeMode({ exam, yearLevel, onSwitchToPractice, onSwit
 
   function skipQuestion() {
     const next = questionIndex + 1
+    setCombo(0)
     if (next >= 5) { finishStage(); return }
     setQuestionIndex(next)
     loadQuestion(activeChapter!, activeStage!, next, askedQuestions)
@@ -151,6 +183,11 @@ export default function ArcadeMode({ exam, yearLevel, onSwitchToPractice, onSwit
 
   function finishStage() {
     saveProgress()
+    const finalStars = Math.max(1, Math.min(3, hearts))
+    setStarsAnim([false, false, false])
+    setTimeout(() => setStarsAnim([true, false, false]), 200)
+    if (finalStars >= 2) setTimeout(() => setStarsAnim([true, true, false]), 500)
+    if (finalStars >= 3) setTimeout(() => setStarsAnim([true, true, true]), 800)
     setScreen("stage_complete")
   }
 
@@ -179,27 +216,45 @@ export default function ArcadeMode({ exam, yearLevel, onSwitchToPractice, onSwit
     return (progress[chapter]?.[stage - 1]?.stars ?? 0) > 0
   }
 
-  function pickaxe() {
-    if (totalXP >= 2000) return "💎 Diamond Pickaxe"
-    if (totalXP >= 1000) return "🪙 Gold Pickaxe"
-    if (totalXP >= 500)  return "⚙️ Iron Pickaxe"
-    if (totalXP >= 100)  return "🪨 Stone Pickaxe"
-    return "🪵 Wooden Pickaxe"
-  }
+  const rank = getRank(totalXP)
+  const nextRank = RANKS.find(r => r.min > totalXP)
+  const xpToNextRank = nextRank ? nextRank.min - totalXP : 0
+  const rankProgress = nextRank ? ((totalXP - rank.min) / (nextRank.min - rank.min)) * 100 : 100
 
   // ─── WORLD MAP ────────────────────────────────────────────────────────────
   if (screen === "worldmap") {
     return (
-      <div className="flex-1 min-h-0 flex flex-col overflow-hidden" style={{ background: "#0f1117", color: "#f1f5f9" }}>
-        {/* Header */}
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden"
+        style={{ background: "linear-gradient(180deg, #0a0d13 0%, #0f1117 100%)", color: "#f1f5f9" }}>
+        <style>{`
+          @keyframes rank-glow { 0%,100% { box-shadow: 0 0 8px ${rank.color}55; } 50% { box-shadow: 0 0 22px ${rank.color}99; } }
+          @keyframes chapter-unlock { 0% { transform: scale(0.93); opacity:0.5; } 100% { transform: scale(1); opacity:1; } }
+          @keyframes spin { to { transform: rotate(360deg); } }
+        `}</style>
+
+        {/* Header with rank */}
         <div className="px-4 py-3 flex items-center justify-between border-b border-white/10 shrink-0" style={{ background: "#0a0d13" }}>
           <div>
-            <p style={{ ...PS2, fontSize: 9, color: world.color }}>{world.shortName.toUpperCase()}</p>
-            <p className="text-slate-500 mt-1" style={{ fontFamily: "system-ui", fontSize: 11 }}>{yearLevel}</p>
+            <p style={{ ...PS2, fontSize: 8, color: world.color }}>{world.shortName.toUpperCase()}</p>
+            <p className="text-slate-500 mt-1" style={{ fontFamily: "system-ui", fontSize: 10 }}>{yearLevel}</p>
           </div>
-          <div className="text-right">
-            <p style={{ ...PS2, fontSize: 9, color: "#FACC15" }}>{pickaxe()}</p>
-            <p className="text-slate-600 mt-1" style={{ fontFamily: "system-ui", fontSize: 11 }}>XP: {totalXP}</p>
+          <div className="flex flex-col items-end gap-1">
+            <p style={{
+              ...PS2, fontSize: 7, color: rank.color,
+              animation: "rank-glow 2.5s ease-in-out infinite",
+              border: `1px solid ${rank.color}55`,
+              padding: "3px 7px", borderRadius: 6,
+            }}>
+              {rank.title}
+            </p>
+            <div className="flex items-center gap-1.5">
+              <div className="w-20 h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.1)" }}>
+                <div className="h-full rounded-full transition-all duration-700"
+                  style={{ width: `${Math.min(100, rankProgress)}%`, background: rank.color }} />
+              </div>
+              <p style={{ fontFamily: "system-ui", fontSize: 9, color: "#64748b" }}>{totalXP} XP</p>
+            </div>
+            {nextRank && <p style={{ fontFamily: "system-ui", fontSize: 8, color: "#475569" }}>{xpToNextRank} XP to {nextRank.title}</p>}
           </div>
         </div>
 
@@ -212,17 +267,28 @@ export default function ArcadeMode({ exam, yearLevel, onSwitchToPractice, onSwit
         {/* Chapters */}
         <div className="flex-1 overflow-y-auto px-3 py-4 space-y-2">
           {progLoading ? (
-            <p className="text-center text-slate-600 mt-8" style={{ ...PS2, fontSize: 10 }}>Loading world...</p>
+            <div className="flex justify-center mt-8">
+              <div className="w-8 h-8 rounded-full border-2 border-white/10 border-t-white/50" style={{ animation: "spin 0.8s linear infinite" }} />
+            </div>
           ) : world.chapters.map((ch, ci) => {
             const unlocked = isChapterUnlocked(ci)
+            const chapterComplete = [1,2,3].every(s => (progress[ch]?.[s]?.stars ?? 0) > 0)
             return (
               <div key={ch}
-                className="flex items-center gap-3 p-3 rounded-xl border border-white/5"
-                style={{ background: "rgba(255,255,255,0.03)", opacity: unlocked ? 1 : 0.45 }}
-              >
+                className="flex items-center gap-3 p-3 rounded-xl border transition-all"
+                style={{
+                  background: chapterComplete ? "rgba(253,200,0,0.07)" : "rgba(255,255,255,0.03)",
+                  borderColor: chapterComplete ? "rgba(253,200,0,0.28)" : "rgba(255,255,255,0.06)",
+                  opacity: unlocked ? 1 : 0.4,
+                }}>
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold truncate" style={{ fontFamily: "system-ui", fontSize: 14, color: unlocked ? "#f1f5f9" : "#475569" }}>{ch}</p>
-                  <p className="text-slate-600 mt-0.5" style={{ fontFamily: "system-ui", fontSize: 11 }}>
+                  <div className="flex items-center gap-2">
+                    <p className="font-bold truncate" style={{ fontFamily: "system-ui", fontSize: 13, color: unlocked ? "#f1f5f9" : "#475569" }}>
+                      {ci + 1}. {ch}
+                    </p>
+                    {chapterComplete && <span style={{ fontSize: 11 }}>✅</span>}
+                  </div>
+                  <p className="text-slate-600 mt-0.5" style={{ fontFamily: "system-ui", fontSize: 10 }}>
                     {[1,2,3].map(s => {
                       const st = progress[ch]?.[s]?.stars ?? 0
                       return st > 0 ? "★".repeat(st) : null
@@ -240,13 +306,13 @@ export default function ArcadeMode({ exam, yearLevel, onSwitchToPractice, onSwit
                         onClick={() => su && enterStage(ch, stage)}
                         disabled={!su}
                         className="flex flex-col items-center gap-0.5 disabled:cursor-not-allowed group"
-                      >
-                        <div style={{ filter: su ? "none" : "grayscale(1) brightness(0.4)", transition: "transform 0.1s" }}
+                        title={STAGE_LABEL[stage]}>
+                        <div style={{ filter: su ? "none" : "grayscale(1) brightness(0.3)" }}
                           className="group-hover:scale-110 group-active:scale-95 transition-transform">
-                          {!su ? <BedrockBlock size={46} /> : stars > 0 ? <GoldBlock size={46} /> : <Block size={46} />}
+                          {!su ? <BedrockBlock size={44} /> : stars > 0 ? <GoldBlock size={44} /> : <Block size={44} />}
                         </div>
-                        <span style={{ fontSize: 8, color: "#FACC15", height: 10, lineHeight: "10px" }}>
-                          {stars > 0 ? "★".repeat(stars) : ""}
+                        <span style={{ fontSize: 7, color: "#FACC15", height: 9, lineHeight: "9px" }}>
+                          {stars > 0 ? "★".repeat(stars) : su ? "·" : ""}
                         </span>
                       </button>
                     )
@@ -255,7 +321,6 @@ export default function ArcadeMode({ exam, yearLevel, onSwitchToPractice, onSwit
               </div>
             )
           })}
-
           {!isSignedIn && (
             <p className="text-center text-slate-600 mt-4 text-xs" style={{ fontFamily: "system-ui" }}>Sign in to save progress across sessions</p>
           )}
@@ -266,7 +331,7 @@ export default function ArcadeMode({ exam, yearLevel, onSwitchToPractice, onSwit
           <button onClick={onExit} className="text-xs text-slate-500 hover:text-slate-300 transition-colors" style={{ fontFamily: "system-ui" }}>
             ← Exit Adventure
           </button>
-          <p className="text-slate-700" style={{ ...PS2, fontSize: 8 }}>SELECTED ADVENTURE</p>
+          <p style={{ ...PS2, fontSize: 7, color: "#1e293b" }}>SELECTED ADVENTURE</p>
         </div>
       </div>
     )
@@ -276,49 +341,84 @@ export default function ArcadeMode({ exam, yearLevel, onSwitchToPractice, onSwit
   if (screen === "mining") {
     const stage = activeStage ?? 1
     const Block = stage === 1 ? CoalOreBlock : stage === 2 ? IronOreBlock : DiamondOreBlock
+    const mult = comboMultiplier(combo)
 
     return (
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden" style={{ background: "#0f1117", color: "#f1f5f9" }}>
+        <style>{`
+          @keyframes shake-x { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-9px); } 40% { transform: translateX(9px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(5px); } }
+          @keyframes combo-pop { 0% { transform: scale(0.5) translateY(6px); opacity:0; } 60% { transform: scale(1.22) translateY(-2px); opacity:1; } 100% { transform: scale(1) translateY(0); opacity:1; } }
+          @keyframes xp-flash { 0%,100% { color: #FACC15; } 50% { color: #fff; text-shadow: 0 0 14px #FACC15; } }
+          @keyframes correct-bounce { 0%,100% { transform: scale(1); } 35% { transform: scale(1.1); } 65% { transform: scale(0.97); } }
+          @keyframes spin { to { transform: rotate(360deg); } }
+        `}</style>
+
         {/* HUD */}
-        <div className="px-4 py-3 flex items-center justify-between border-b border-white/10 shrink-0" style={{ background: "#0a0d13" }}>
-          <div className="flex items-center gap-3">
-            <button onClick={() => setScreen("worldmap")} className="text-slate-500 hover:text-slate-300 transition-colors text-lg">←</button>
+        <div className="px-3 py-2.5 flex items-center justify-between border-b border-white/10 shrink-0" style={{ background: "#0a0d13" }}>
+          <div className="flex items-center gap-2.5">
+            <button onClick={() => setScreen("worldmap")} className="text-slate-500 hover:text-slate-300 transition-colors text-base">←</button>
             <div className="flex gap-1">
-              {[1,2,3].map(i => <span key={i} style={{ fontSize: 15, opacity: i <= hearts ? 1 : 0.15 }}>❤️</span>)}
+              {[1,2,3].map(i => (
+                <span key={i} style={{ fontSize: 13, opacity: i <= hearts ? 1 : 0.12 }}>❤️</span>
+              ))}
             </div>
           </div>
+
           <div className="text-center">
-            <p style={{ ...PS2, fontSize: 8, color: world.color }}>{activeChapter}</p>
-            <p className="text-slate-500 mt-0.5" style={{ fontFamily: "system-ui", fontSize: 10 }}>{STAGE_LABEL[stage]} · Q{questionIndex + 1}/5</p>
+            <p style={{ ...PS2, fontSize: 7, color: world.color }}>{activeChapter}</p>
+            <p className="text-slate-500 mt-0.5" style={{ fontFamily: "system-ui", fontSize: 9 }}>{STAGE_LABEL[stage]} · Q{questionIndex + 1}/5</p>
           </div>
-          <p style={{ ...PS2, fontSize: 9, color: "#FACC15" }}>+{stageXP} XP</p>
+
+          <div className="flex flex-col items-end gap-0.5">
+            <p style={{ ...PS2, fontSize: 8, color: "#FACC15", animation: xpFlash ? "xp-flash 0.6s ease-in-out" : "none" }}>
+              +{stageXP} XP
+            </p>
+            {combo >= 2 && (
+              <p style={{
+                ...PS2, fontSize: 7,
+                color: combo >= 5 ? "#F97316" : combo >= 3 ? "#FBBF24" : "#a78bfa",
+                animation: comboAnim ? "combo-pop 0.7s ease-out" : "none",
+              }}>
+                {combo}×{mult >= 3 ? "🔥🔥🔥" : mult >= 2 ? "🔥🔥" : "🔥"} COMBO
+              </p>
+            )}
+          </div>
         </div>
 
-        {/* XP progress bar */}
+        {/* Progress bar */}
         <div className="h-2 shrink-0" style={{ background: "#1a1d27" }}>
-          <div className="h-full transition-all duration-300" style={{ width: `${(questionIndex / 5) * 100}%`, background: `linear-gradient(90deg, ${world.color}, #8BC34A)` }} />
+          <div className="h-full transition-all duration-500" style={{
+            width: `${(questionIndex / 5) * 100}%`,
+            background: `linear-gradient(90deg, ${world.color}, #8BC34A)`,
+          }} />
         </div>
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col items-center gap-4 min-h-0">
 
-          {/* Block sprite */}
+          {/* Block sprite with animations */}
           <div style={{
-            filter: answerState === "correct" ? `drop-shadow(0 0 18px #4ade80) brightness(1.4)` :
-                    answerState === "wrong"   ? `drop-shadow(0 0 10px #ef4444) brightness(0.75)` : "none",
+            filter: answerState === "correct" ? `drop-shadow(0 0 22px #4ade80) brightness(1.5)` :
+                    answerState === "wrong"   ? `drop-shadow(0 0 12px #ef4444) brightness(0.7)` : "none",
             transition: "filter 0.15s",
-            transform: answerState === "correct" ? "scale(1.08)" : "scale(1)",
+            animation: shaking ? "shake-x 0.5s ease-out" :
+                       answerState === "correct" ? "correct-bounce 0.4s ease-out" : "none",
           }}>
-            <Block size={96} cracks={wrongOnQ} />
+            <Block size={90} cracks={wrongOnQ} />
           </div>
 
-          {qLoading && <p className="text-slate-600 animate-pulse mt-4" style={{ ...PS2, fontSize: 10 }}>Mining question...</p>}
+          {qLoading && (
+            <div className="flex flex-col items-center gap-2 mt-2">
+              <div className="w-7 h-7 border-2 border-white/10 border-t-white/50 rounded-full" style={{ animation: "spin 0.8s linear infinite" }} />
+              <p className="text-slate-600" style={{ ...PS2, fontSize: 8 }}>Mining question...</p>
+            </div>
+          )}
 
           {qError && (
             <div className="flex flex-col items-center gap-3 mt-4">
               <p className="text-red-400 text-sm" style={{ fontFamily: "system-ui" }}>Failed to load question</p>
               <button onClick={() => loadQuestion(activeChapter!, activeStage!, questionIndex, askedQuestions)}
-                className="px-4 py-2 rounded-xl text-xs" style={{ ...PS2, background: "#374151", color: "#d1d5db", fontSize: 9 }}>
+                className="px-4 py-2 rounded-xl" style={{ ...PS2, background: "#374151", color: "#d1d5db", fontSize: 8 }}>
                 RETRY ↺
               </button>
             </div>
@@ -327,13 +427,12 @@ export default function ArcadeMode({ exam, yearLevel, onSwitchToPractice, onSwit
           {!qLoading && !qError && question && (
             <>
               {/* Question card */}
-              <div className="w-full max-w-sm rounded-xl p-4 text-center" style={{
+              <div className="w-full max-w-sm rounded-xl p-4 text-center transition-all" style={{
                 background: "rgba(255,255,255,0.04)",
-                border: answerState === "correct" ? "1px solid #4ade80" :
-                        answerState === "wrong"   ? "1px solid #ef4444" : "1px solid rgba(255,255,255,0.08)",
-                transition: "border-color 0.15s",
+                border: answerState === "correct" ? "1.5px solid #4ade80" :
+                        answerState === "wrong"   ? "1.5px solid #ef4444" : "1px solid rgba(255,255,255,0.08)",
               }}>
-                <p className="text-white leading-relaxed" style={{ fontFamily: "system-ui", fontSize: 15 }}>{question.question}</p>
+                <p className="text-white leading-relaxed" style={{ fontFamily: "system-ui", fontSize: 14 }}>{question.question}</p>
               </div>
 
               {/* Options */}
@@ -345,13 +444,13 @@ export default function ArcadeMode({ exam, yearLevel, onSwitchToPractice, onSwit
                   let bg = "rgba(255,255,255,0.05)"
                   let border = "rgba(255,255,255,0.1)"
                   if (answerState !== "idle") {
-                    if (isCorrect) { bg = "rgba(74,222,128,0.12)"; border = "#4ade80" }
-                    else if (isSelected) { bg = "rgba(239,68,68,0.12)"; border = "#ef4444" }
+                    if (isCorrect) { bg = "rgba(74,222,128,0.14)"; border = "#4ade80" }
+                    else if (isSelected) { bg = "rgba(239,68,68,0.14)"; border = "#ef4444" }
                   }
                   return (
                     <button key={i} onClick={() => selectAnswer(opt)} disabled={answerState !== "idle"}
                       className="rounded-xl px-3 py-3 text-left transition-all hover:scale-[1.02] active:scale-[0.98] disabled:cursor-default"
-                      style={{ background: bg, border: `1px solid ${border}`, fontFamily: "system-ui", fontSize: 14, transition: "all 0.15s" }}>
+                      style={{ background: bg, border: `1.5px solid ${border}`, fontFamily: "system-ui", fontSize: 13 }}>
                       <span style={{ color: "#FACC15", fontWeight: 700 }}>{letter}. </span>
                       <span className="text-white">{opt.slice(3)}</span>
                     </button>
@@ -361,12 +460,17 @@ export default function ArcadeMode({ exam, yearLevel, onSwitchToPractice, onSwit
 
               {/* Correct feedback */}
               {answerState === "correct" && (
-                <div className="w-full max-w-sm rounded-xl p-4 space-y-2" style={{ background: "rgba(74,222,128,0.08)", border: "1px solid #4ade80" }}>
-                  <p className="font-bold text-green-400" style={{ fontFamily: "system-ui" }}>✓ Correct! +{STAGE_XP[stage]} XP</p>
+                <div className="w-full max-w-sm rounded-xl p-4 space-y-2" style={{ background: "rgba(74,222,128,0.08)", border: "1.5px solid #4ade80" }}>
+                  <div className="flex items-center justify-between">
+                    <p className="font-bold text-green-400" style={{ fontFamily: "system-ui" }}>✓ Correct!</p>
+                    <p style={{ ...PS2, fontSize: 7, color: "#FACC15" }}>
+                      +{STAGE_XP[stage] * mult} XP{mult > 1 ? ` ×${mult}🔥` : ""}
+                    </p>
+                  </div>
                   {question.funFact && <p className="text-green-300 text-sm" style={{ fontFamily: "system-ui" }}>💡 {question.funFact}</p>}
                   <button onClick={nextQuestion}
-                    className="w-full rounded-lg py-2 font-bold transition-opacity hover:opacity-90"
-                    style={{ ...PS2, fontSize: 9, background: "#4ade80", color: "#0f172a" }}>
+                    className="w-full rounded-lg py-2.5 font-bold transition-opacity hover:opacity-90"
+                    style={{ ...PS2, fontSize: 8, background: "#4ade80", color: "#0f172a" }}>
                     {questionIndex < 4 ? "NEXT BLOCK ⛏️" : "STAGE CLEAR! →"}
                   </button>
                 </div>
@@ -374,19 +478,19 @@ export default function ArcadeMode({ exam, yearLevel, onSwitchToPractice, onSwit
 
               {/* Wrong feedback */}
               {answerState === "wrong" && hearts > 0 && (
-                <div className="w-full max-w-sm rounded-xl p-4 space-y-2" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid #ef4444" }}>
+                <div className="w-full max-w-sm rounded-xl p-4 space-y-2" style={{ background: "rgba(239,68,68,0.08)", border: "1.5px solid #ef4444" }}>
                   <p className="font-bold text-red-400" style={{ fontFamily: "system-ui" }}>✗ Not quite! {hearts} ❤️ left</p>
                   {showHint && <p className="text-red-300 text-sm" style={{ fontFamily: "system-ui" }}>💡 Hint: {question.hint}</p>}
                   <div className="flex gap-2">
                     <button onClick={() => { setAnswerState("idle"); setSelected(null) }}
-                      className="flex-1 rounded-lg py-2 font-bold"
-                      style={{ ...PS2, fontSize: 8, background: "#ef4444", color: "white" }}>
+                      className="flex-1 rounded-lg py-2.5 font-bold"
+                      style={{ ...PS2, fontSize: 7, background: "#ef4444", color: "white" }}>
                       TRY AGAIN
                     </button>
                     {wrongOnQ >= 2 && (
                       <button onClick={skipQuestion}
-                        className="flex-1 rounded-lg py-2 font-bold"
-                        style={{ ...PS2, fontSize: 8, background: "#374151", color: "#9ca3af" }}>
+                        className="flex-1 rounded-lg py-2.5 font-bold"
+                        style={{ ...PS2, fontSize: 7, background: "#374151", color: "#9ca3af" }}>
                         SKIP →
                       </button>
                     )}
@@ -409,54 +513,77 @@ export default function ArcadeMode({ exam, yearLevel, onSwitchToPractice, onSwit
     const nextChapter = ci < world.chapters.length - 1 ? world.chapters[ci + 1] : null
 
     return (
-      <div className="flex-1 min-h-0 flex flex-col items-center justify-center overflow-y-auto px-6 py-8 gap-6" style={{ background: "#0f1117", color: "#f1f5f9" }}>
-        <div className="text-center space-y-3">
+      <div className="flex-1 min-h-0 flex flex-col items-center justify-center overflow-y-auto px-6 py-8 gap-5" style={{ background: "#0f1117", color: "#f1f5f9" }}>
+        <style>{`
+          @keyframes star-pop { 0% { transform: scale(0) rotate(-20deg); opacity:0; } 65% { transform: scale(1.35) rotate(5deg); } 100% { transform: scale(1) rotate(0deg); opacity:1; } }
+          @keyframes clear-in { 0% { transform: scale(0.7); opacity:0; } 60% { transform: scale(1.05); } 100% { transform: scale(1); opacity:1; } }
+          @keyframes xp-slide { 0% { transform: translateY(10px); opacity:0; } 100% { transform: translateY(0); opacity:1; } }
+        `}</style>
+
+        <div className="text-center space-y-3" style={{ animation: "clear-in 0.4s ease-out" }}>
           <p className="text-4xl">⛏️</p>
-          <p style={{ ...PS2, fontSize: 14, color: "#FACC15" }}>STAGE CLEAR!</p>
-          <p className="text-slate-400" style={{ fontFamily: "system-ui", fontSize: 14 }}>{activeChapter} · {STAGE_LABEL[stage]}</p>
-          <div className="flex justify-center gap-1 text-2xl">
-            {[1,2,3].map(i => <span key={i} style={{ opacity: i <= stars ? 1 : 0.18 }}>⭐</span>)}
+          <p style={{ ...PS2, fontSize: 13, color: "#FACC15" }}>STAGE CLEAR!</p>
+          <p className="text-slate-400" style={{ fontFamily: "system-ui", fontSize: 13 }}>{activeChapter} · {STAGE_LABEL[stage]}</p>
+          <div className="flex justify-center gap-2" style={{ fontSize: 32 }}>
+            {[0,1,2].map(i => (
+              <span key={i} style={{
+                opacity: starsAnim[i] ? 1 : 0.1,
+                transform: starsAnim[i] ? "scale(1)" : "scale(0.5)",
+                animation: starsAnim[i] ? `star-pop 0.4s ease-out` : "none",
+                display: "inline-block",
+              }}>⭐</span>
+            ))}
           </div>
-          <p style={{ ...PS2, fontSize: 11, color: "#4ade80" }}>+{stageXP} XP earned</p>
+          <div style={{ animation: "xp-slide 0.4s 0.6s ease-out both" }}>
+            <p style={{ ...PS2, fontSize: 10, color: "#4ade80" }}>+{stageXP} XP earned</p>
+            {maxCombo >= 3 && <p className="mt-1" style={{ fontFamily: "system-ui", fontSize: 12, color: "#FACC15" }}>🔥 Best combo: {maxCombo}×</p>}
+          </div>
         </div>
 
-        <div className="w-full max-w-xs space-y-3">
+        <div className="w-full max-w-xs space-y-2.5">
           {nextStage && (
             <button onClick={() => enterStage(activeChapter!, nextStage)}
-              className="w-full rounded-xl py-4 px-4 text-left transition-all hover:scale-[1.01] active:scale-[0.99]"
-              style={{ background: "rgba(253,200,0,0.08)", border: "2px solid #FDC800" }}>
-              <p style={{ ...PS2, fontSize: 10, color: "#FDC800" }}>CONTINUE MINING →</p>
-              <p className="text-slate-500 mt-1" style={{ fontFamily: "system-ui", fontSize: 12 }}>{STAGE_LABEL[nextStage]}</p>
+              className="w-full rounded-xl py-4 px-4 text-left transition-all hover:scale-[1.02] active:scale-[0.99]"
+              style={{ background: "rgba(253,200,0,0.1)", border: "2px solid #FDC800" }}>
+              <p style={{ ...PS2, fontSize: 9, color: "#FDC800" }}>CONTINUE MINING →</p>
+              <p className="text-slate-500 mt-1" style={{ fontFamily: "system-ui", fontSize: 11 }}>{STAGE_LABEL[nextStage]}</p>
             </button>
           )}
 
           {!nextStage && nextChapter && (
             <button onClick={() => setScreen("worldmap")}
-              className="w-full rounded-xl py-4 px-4 text-left transition-all hover:scale-[1.01] active:scale-[0.99]"
-              style={{ background: "rgba(253,200,0,0.08)", border: "2px solid #FDC800" }}>
-              <p style={{ ...PS2, fontSize: 10, color: "#FDC800" }}>NEXT CHAPTER →</p>
-              <p className="text-slate-500 mt-1" style={{ fontFamily: "system-ui", fontSize: 12 }}>{nextChapter} unlocked!</p>
+              className="w-full rounded-xl py-4 px-4 text-left transition-all hover:scale-[1.02]"
+              style={{ background: "rgba(253,200,0,0.1)", border: "2px solid #FDC800" }}>
+              <p style={{ ...PS2, fontSize: 9, color: "#FDC800" }}>NEXT CHAPTER →</p>
+              <p className="text-slate-500 mt-1" style={{ fontFamily: "system-ui", fontSize: 11 }}>{nextChapter} unlocked!</p>
             </button>
           )}
 
           <button onClick={() => setScreen("worldmap")}
-            className="w-full rounded-xl py-3 px-4 text-left transition-all hover:scale-[1.01]"
+            className="w-full rounded-xl py-3 px-4 flex items-center gap-3 transition-all hover:scale-[1.01]"
             style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-            <p style={{ ...PS2, fontSize: 10, color: "#94a3b8" }}>🗺️ WORLD MAP</p>
+            <span style={{ fontSize: 17 }}>🗺️</span>
+            <p style={{ ...PS2, fontSize: 8, color: "#94a3b8" }}>WORLD MAP</p>
           </button>
 
           <button onClick={() => onSwitchToPractice(exam, yearLevel)}
-            className="w-full rounded-xl py-3 px-4 text-left transition-all hover:scale-[1.01]"
+            className="w-full rounded-xl py-3 px-4 flex items-center gap-3 transition-all hover:scale-[1.01]"
             style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-            <p style={{ ...PS2, fontSize: 10, color: "#94a3b8" }}>📝 PRACTICE MODE</p>
-            <p className="text-slate-600 mt-0.5" style={{ fontFamily: "system-ui", fontSize: 11 }}>Open-ended practice for {exam.split("(")[0].trim().slice(0, 28)}</p>
+            <span style={{ fontSize: 17 }}>📝</span>
+            <div>
+              <p style={{ ...PS2, fontSize: 8, color: "#94a3b8" }}>PRACTICE MODE</p>
+              <p className="text-slate-600 mt-0.5" style={{ fontFamily: "system-ui", fontSize: 10 }}>{exam.split("(")[0].trim().slice(0, 26)}</p>
+            </div>
           </button>
 
           <button onClick={() => onSwitchToExam(exam, yearLevel)}
-            className="w-full rounded-xl py-3 px-4 text-left transition-all hover:scale-[1.01]"
+            className="w-full rounded-xl py-3 px-4 flex items-center gap-3 transition-all hover:scale-[1.01]"
             style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-            <p style={{ ...PS2, fontSize: 10, color: "#94a3b8" }}>📋 TAKE AN EXAM</p>
-            <p className="text-slate-600 mt-0.5" style={{ fontFamily: "system-ui", fontSize: 11 }}>Sit a full timed mock exam</p>
+            <span style={{ fontSize: 17 }}>📋</span>
+            <div>
+              <p style={{ ...PS2, fontSize: 8, color: "#94a3b8" }}>TAKE AN EXAM</p>
+              <p className="text-slate-600 mt-0.5" style={{ fontFamily: "system-ui", fontSize: 10 }}>Full timed mock exam</p>
+            </div>
           </button>
         </div>
       </div>
@@ -465,23 +592,33 @@ export default function ArcadeMode({ exam, yearLevel, onSwitchToPractice, onSwit
 
   // ─── GAME OVER ────────────────────────────────────────────────────────────
   return (
-    <div className="flex-1 min-h-0 flex flex-col items-center justify-center overflow-y-auto px-6 py-8 gap-6" style={{ background: "#0f1117", color: "#f1f5f9" }}>
-      <div className="text-center space-y-3">
-        <p className="text-5xl">💀</p>
-        <p style={{ ...PS2, fontSize: 14, color: "#ef4444" }}>GAME OVER</p>
-        <p className="text-slate-400" style={{ fontFamily: "system-ui", fontSize: 14 }}>You ran out of hearts</p>
-        <p className="text-slate-600" style={{ fontFamily: "system-ui", fontSize: 12 }}>{activeChapter} · {STAGE_LABEL[activeStage ?? 1]}</p>
+    <div className="flex-1 min-h-0 flex flex-col items-center justify-center overflow-y-auto px-6 py-8 gap-6"
+      style={{ background: "#0f1117", color: "#f1f5f9" }}>
+      <style>{`
+        @keyframes skull-bounce { 0%,100% { transform: translateY(0) rotate(0deg); } 30% { transform: translateY(-14px) rotate(-6deg); } 70% { transform: translateY(-7px) rotate(5deg); } }
+        @keyframes game-over-in { 0% { transform: scale(0.65); opacity:0; } 65% { transform: scale(1.06); } 100% { transform: scale(1); opacity:1; } }
+        @keyframes red-pulse { 0%,100% { background: #0f1117; } 50% { background: rgba(239,68,68,0.06); } }
+      `}</style>
+      <div className="absolute inset-0 pointer-events-none" style={{ animation: "red-pulse 1.2s ease-in-out 3" }} />
+      <div className="text-center space-y-3 relative" style={{ animation: "game-over-in 0.5s ease-out" }}>
+        <p className="text-6xl" style={{ animation: "skull-bounce 1.4s ease-in-out infinite" }}>💀</p>
+        <p style={{ ...PS2, fontSize: 15, color: "#ef4444" }}>GAME OVER</p>
+        <p className="text-slate-400" style={{ fontFamily: "system-ui", fontSize: 13 }}>You ran out of hearts</p>
+        <p className="text-slate-600" style={{ fontFamily: "system-ui", fontSize: 11 }}>{activeChapter} · {STAGE_LABEL[activeStage ?? 1]}</p>
+        {maxCombo >= 2 && (
+          <p style={{ fontFamily: "system-ui", fontSize: 11, color: "#FACC15" }}>🔥 Best combo this run: {maxCombo}×</p>
+        )}
       </div>
-      <div className="w-full max-w-xs space-y-3">
+      <div className="w-full max-w-xs space-y-3 relative">
         <button onClick={() => enterStage(activeChapter!, activeStage!)}
-          className="w-full rounded-xl py-4 text-center transition-all hover:scale-[1.01]"
-          style={{ background: "rgba(239,68,68,0.12)", border: "2px solid #ef4444" }}>
-          <p style={{ ...PS2, fontSize: 10, color: "#ef4444" }}>TRY AGAIN ♻️</p>
+          className="w-full rounded-xl py-4 text-center transition-all hover:scale-[1.02] active:scale-[0.98]"
+          style={{ background: "rgba(239,68,68,0.14)", border: "2px solid #ef4444" }}>
+          <p style={{ ...PS2, fontSize: 9, color: "#ef4444" }}>TRY AGAIN ♻️</p>
         </button>
         <button onClick={() => setScreen("worldmap")}
           className="w-full rounded-xl py-3 text-center transition-all hover:scale-[1.01]"
           style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-          <p style={{ ...PS2, fontSize: 10, color: "#94a3b8" }}>🗺️ WORLD MAP</p>
+          <p style={{ ...PS2, fontSize: 9, color: "#94a3b8" }}>🗺️ WORLD MAP</p>
         </button>
       </div>
     </div>

@@ -6,6 +6,8 @@ Deletes any existing DESIGN.docx before writing a fresh copy.
 
 import re
 import sys
+import io
+import tempfile
 from pathlib import Path
 from docx import Document
 from docx.shared import Pt, RGBColor, Inches, Cm
@@ -13,6 +15,17 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
+
+try:
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import matplotlib.patches as mpatches
+    from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
+    HAS_MPL = True
+except ImportError:
+    HAS_MPL = False
+    print("WARNING: matplotlib not installed — diagrams will be skipped. Run: pip install matplotlib")
 
 ROOT     = Path(__file__).parent.parent
 SRC      = ROOT / "DESIGN.md"
@@ -473,6 +486,189 @@ def build_doc(md_text: str) -> Document:
     return doc
 
 
+# ── Diagram generators ────────────────────────────────────────────────────────
+
+def _save_fig_to_bytes(fig) -> bytes:
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    buf.seek(0)
+    return buf.read()
+
+
+def make_architecture_diagram() -> bytes | None:
+    if not HAS_MPL:
+        return None
+    fig, ax = plt.subplots(figsize=(10, 5))
+    ax.set_xlim(0, 10); ax.set_ylim(0, 5); ax.axis("off")
+    fig.patch.set_facecolor("#F8FAFC")
+    ax.set_facecolor("#F8FAFC")
+
+    # colour palette
+    C_NAVY = "#000936"; C_GOLD = "#FDC800"; C_BLUE = "#0066CB"
+    C_ORANGE = "#E34C00"; C_TEAL = "#0891B2"; C_GREEN = "#059669"
+    C_PURPLE = "#7C3AED"; C_LIGHT = "#EFF6FF"; C_GRAY = "#F1F5F9"
+
+    def box(x, y, w, h, label, sub="", fill=C_LIGHT, edge=C_BLUE, lc=C_NAVY):
+        rect = FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.08",
+                               facecolor=fill, edgecolor=edge, linewidth=1.8, zorder=2)
+        ax.add_patch(rect)
+        ax.text(x + w/2, y + h/2 + (0.12 if sub else 0), label,
+                ha="center", va="center", fontsize=8.5, fontweight="bold", color=lc, zorder=3)
+        if sub:
+            ax.text(x + w/2, y + h/2 - 0.22, sub,
+                    ha="center", va="center", fontsize=6.5, color="#64748B", zorder=3)
+
+    def arrow(x1, y1, x2, y2, color=C_BLUE):
+        ax.annotate("", xy=(x2, y2), xytext=(x1, y1),
+                    arrowprops=dict(arrowstyle="-|>", color=color, lw=1.6),
+                    zorder=1)
+
+    # Title
+    ax.text(5, 4.7, "SelectEd — System Architecture", ha="center", va="top",
+            fontsize=12, fontweight="bold", color=C_NAVY)
+
+    # Client layer
+    box(0.2, 3.2, 2.0, 1.0, "Browser / App", "React 19 + Tailwind v4", fill="#EFF6FF", edge=C_BLUE)
+
+    # Next.js layer
+    box(3.2, 3.2, 2.0, 1.0, "Next.js 16", "App Router + proxy.ts", fill="#F0FDF4", edge=C_GREEN)
+
+    # Auth
+    box(5.8, 3.8, 1.6, 0.7, "Clerk v7", "Auth / JWT", fill="#FAF5FF", edge=C_PURPLE)
+
+    # AI
+    box(5.8, 2.8, 1.6, 0.7, "Claude Sonnet", "Anthropic API", fill="#FFF7ED", edge=C_ORANGE)
+
+    # Stripe
+    box(5.8, 1.8, 1.6, 0.7, "Stripe", "Billing / Webhook", fill="#FFF1F2", edge="#E11D48")
+
+    # DB
+    box(7.8, 3.2, 1.8, 1.0, "Neon PostgreSQL", "Prisma 7 ORM\nAWS ap-southeast-2", fill=C_GRAY, edge=C_TEAL, lc=C_TEAL)
+
+    # Redis
+    box(7.8, 1.9, 1.8, 0.9, "Upstash Redis", "Rate limiting\nSliding window", fill=C_GRAY, edge="#DC2626", lc="#DC2626")
+
+    # Vercel layer (background)
+    vercel_bg = FancyBboxPatch((2.8, 2.9), 2.8, 1.5,
+                                boxstyle="round,pad=0.1",
+                                facecolor="#F0FDF4", edgecolor=C_GREEN,
+                                linewidth=1.2, linestyle="--", zorder=1, alpha=0.4)
+    ax.add_patch(vercel_bg)
+    ax.text(4.2, 4.55, "Vercel Edge Network", ha="center", fontsize=6.5, color=C_GREEN, style="italic")
+
+    # Arrows
+    arrow(2.2, 3.7, 3.2, 3.7)              # browser → Next.js
+    arrow(5.2, 3.85, 5.8, 3.85+0.12)       # Next.js → Clerk
+    arrow(5.2, 3.55, 5.8, 2.98+0.12)       # Next.js → Claude
+    arrow(5.2, 3.35, 5.8, 1.98+0.12)       # Next.js → Stripe
+    arrow(7.4, 3.7, 7.8, 3.7)             # Next.js → Neon
+    arrow(7.4, 3.3, 7.8, 2.35)            # Next.js → Redis
+
+    # Legend
+    ax.text(0.2, 0.7, "Legend:", fontsize=7, color="#475569", fontweight="bold")
+    for i, (col, lbl) in enumerate([
+        (C_BLUE, "Frontend"), (C_GREEN, "Backend / Vercel"),
+        (C_PURPLE, "Auth"), (C_ORANGE, "AI"), ("#E11D48", "Payments"), (C_TEAL, "Database"),
+    ]):
+        xi = 0.2 + i * 1.6
+        ax.add_patch(mpatches.Rectangle((xi, 0.35), 0.25, 0.18, color=col, zorder=3))
+        ax.text(xi + 0.32, 0.44, lbl, fontsize=6.5, color="#334155", va="center")
+
+    return _save_fig_to_bytes(fig)
+
+
+def make_user_journey_diagram() -> bytes | None:
+    if not HAS_MPL:
+        return None
+    fig, ax = plt.subplots(figsize=(10, 3.5))
+    ax.set_xlim(0, 10); ax.set_ylim(0, 3.5); ax.axis("off")
+    fig.patch.set_facecolor("#F8FAFC")
+    ax.set_facecolor("#F8FAFC")
+
+    C_NAVY = "#000936"; C_GOLD = "#FDC800"; C_BLUE = "#0066CB"
+    C_GREEN = "#059669"; C_ORANGE = "#E34C00"
+
+    ax.text(5, 3.3, "SelectEd — User Journey", ha="center", fontsize=12, fontweight="bold", color=C_NAVY)
+
+    stages = [
+        ("Guest",       "20 Q/day\nNo sign-up",        "#EFF6FF", C_BLUE),
+        ("Sign Up",     "7-day free trial\nFull access", "#F0FDF4", C_GREEN),
+        ("Free Trial",  "$0 for 7 days\nAll features",  "#FFF7ED", C_ORANGE),
+        ("Premium",     "$9.99/mo AUD\nUnlimited",      "#FFFBEB", "#D97706"),
+        ("Family Plan", "Up to 5 profiles\nDashboard",  "#FAF5FF", "#7C3AED"),
+    ]
+
+    for i, (title, sub, fill, edge) in enumerate(stages):
+        x = 0.4 + i * 1.95
+        rect = FancyBboxPatch((x, 0.6), 1.65, 1.9,
+                               boxstyle="round,pad=0.1",
+                               facecolor=fill, edgecolor=edge, linewidth=2, zorder=2)
+        ax.add_patch(rect)
+        ax.text(x + 0.825, 1.9, title, ha="center", va="center",
+                fontsize=8.5, fontweight="bold", color=edge, zorder=3)
+        ax.text(x + 0.825, 1.3, sub, ha="center", va="center",
+                fontsize=7, color="#475569", zorder=3)
+
+        if i < len(stages) - 1:
+            ax.annotate("", xy=(x + 1.75, 1.55), xytext=(x + 1.65, 1.55),
+                        arrowprops=dict(arrowstyle="-|>", color="#94A3B8", lw=1.8), zorder=4)
+
+        # % conversion labels
+        pcts = ["", "~60% sign up", "~80% continue", "~40% convert", "~25% expand"]
+        if pcts[i]:
+            ax.text(x + 1.73, 1.75, pcts[i], ha="center", fontsize=5.5, color="#94A3B8", style="italic")
+
+    ax.text(5, 0.2, "Conversion funnel — illustrative figures", ha="center", fontsize=6.5, color="#94A3B8", style="italic")
+    return _save_fig_to_bytes(fig)
+
+
+def make_learning_modes_diagram() -> bytes | None:
+    if not HAS_MPL:
+        return None
+    fig, ax = plt.subplots(figsize=(8, 5))
+    ax.set_xlim(0, 8); ax.set_ylim(0, 5); ax.axis("off")
+    fig.patch.set_facecolor("#F8FAFC")
+    ax.set_facecolor("#F8FAFC")
+
+    C_NAVY = "#000936"
+    ax.text(4, 4.7, "Four Learning Modes", ha="center", fontsize=12, fontweight="bold", color=C_NAVY)
+
+    modes = [
+        (0.2, 2.55, "AI Chat Tutor",  "Socratic method\nUnlimited questions\nStep-by-step guidance", "#EFF6FF", "#0066CB"),
+        (4.1, 2.55, "Practice Mode",  "Exam-style questions\nUp to 5 attempts\nFull solution reveal",  "#F0FDF4", "#059669"),
+        (0.2, 0.2,  "Mock Exams",     "Timed assessment\nInstant grading\nAI mistake walkthrough",     "#FFF7ED", "#E34C00"),
+        (4.1, 0.2,  "Adventure Mode", "Gamified worlds\nXP & combo system\nProgressive unlocking",     "#F5F3FF", "#7C3AED"),
+    ]
+
+    for (x, y, title, desc, fill, edge) in modes:
+        rect = FancyBboxPatch((x, y), 3.7, 2.1, boxstyle="round,pad=0.12",
+                               facecolor=fill, edgecolor=edge, linewidth=2.2, zorder=2)
+        ax.add_patch(rect)
+        ax.text(x + 1.85, y + 1.72, title, ha="center", fontsize=10, fontweight="bold", color=edge, va="center", zorder=3)
+        ax.text(x + 1.85, y + 1.0, desc, ha="center", va="center", fontsize=7.5,
+                color="#475569", zorder=3, linespacing=1.5)
+
+    return _save_fig_to_bytes(fig)
+
+
+def insert_diagram(doc: Document, img_bytes: bytes | None, caption: str, width: float = 6.0):
+    if img_bytes is None:
+        return
+    p_img = doc.add_paragraph()
+    p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    para_spacing(p_img, 60, 20)
+    run = p_img.add_run()
+    run.add_picture(io.BytesIO(img_bytes), width=Inches(width))
+
+    p_cap = doc.add_paragraph()
+    p_cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    para_spacing(p_cap, 0, 80)
+    rc = p_cap.add_run(caption)
+    rc.font.name = "Calibri"; rc.font.size = Pt(8.5)
+    rc.font.italic = True; rc.font.color.rgb = MID_GRAY
+
+
 def main():
     if not SRC.exists():
         print(f"ERROR: {SRC} not found"); sys.exit(1)
@@ -486,6 +682,28 @@ def main():
 
     md_text = SRC.read_text(encoding="utf-8")
     doc     = build_doc(md_text)
+
+    # Append visual diagrams appendix
+    if HAS_MPL:
+        doc.add_page_break()
+        h = doc.add_paragraph(style="Heading 1")
+        h.add_run("Visual Architecture Diagrams")
+
+        doc.add_paragraph(style="Heading 2").add_run("System Architecture")
+        insert_diagram(doc, make_architecture_diagram(),
+                       "Figure 1 — SelectEd system architecture overview")
+
+        doc.add_paragraph(style="Heading 2").add_run("User Journey & Conversion Funnel")
+        insert_diagram(doc, make_user_journey_diagram(),
+                       "Figure 2 — User journey from guest to premium family plan")
+
+        doc.add_paragraph(style="Heading 2").add_run("Four Learning Modes")
+        insert_diagram(doc, make_learning_modes_diagram(),
+                       "Figure 3 — Overview of the four learning modes")
+        print("  Diagrams appended (matplotlib)")
+    else:
+        print("  Skipped diagrams (matplotlib not installed)")
+
     doc.save(str(DEST))
     print(f"Saved {DEST.name}  ({DEST.stat().st_size // 1024} KB)")
 
