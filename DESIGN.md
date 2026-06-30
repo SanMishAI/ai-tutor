@@ -3,6 +3,12 @@
 > **AI-powered exam preparation for Australian selective exams.**
 > *Sharpen. Sit. Succeed.*
 
+**Author:** Santrupta Mishra (San)
+**Role:** Founder & Developer
+**Contact:** Director, Global Consulting · Melbourne, Australia
+**Repository:** https://github.com/SanMishAI/ai-tutor
+**Live URL:** https://selected-ed.vercel.app
+
 ---
 
 ## Table of Contents
@@ -22,22 +28,26 @@
 7. [API Routes](#7-api-routes)
 8. [State Management](#8-state-management)
 9. [Data Persistence](#9-data-persistence)
-10. [UI & Design System](#10-ui--design-system)
-11. [Environment Variables](#11-environment-variables)
-12. [Local Development Setup](#12-local-development-setup)
-13. [Roadmap](#13-roadmap)
-14. [Deployment](#14-deployment)
-15. [About Page](#15-about-page)
+10. [Authentication](#10-authentication)
+11. [UI & Design System](#11-ui--design-system)
+12. [Environment Variables](#12-environment-variables)
+13. [Local Development Setup](#13-local-development-setup)
+14. [Roadmap](#14-roadmap)
+15. [Deployment](#15-deployment)
+16. [About Page](#16-about-page)
+17. [Version History](#17-version-history)
 
 ---
 
 ## 1. Project Overview
 
-SelectEd is a single-page web application that prepares students for six Australian exams using Claude AI as a Socratic tutor. Students can:
+SelectEd is a web application that prepares Australian students for selective school and competition exams using Claude AI as a Socratic tutor. Students can:
 
 - **Chat** — ask questions and get guided (never directly answered) in a ruled-notebook UI
 - **Practice** — receive generated problems and work through them with up to 5 attempts before the answer is revealed
 - **Exam** — sit a timed mock exam, auto-submitted when time expires, then review mistakes with AI-generated walkthroughs
+
+Users can optionally sign in with Google, Apple, GitHub, email, or phone to sync their data across devices. Guests can use the full app without creating an account.
 
 ### Supported exams
 
@@ -54,17 +64,57 @@ SelectEd is a single-page web application that prepares students for six Austral
 
 ## 2. Tech Stack
 
-| Layer | Technology | Version | Why |
-|-------|-----------|---------|-----|
-| Framework | Next.js (App Router) | 16.2.9 | File-based routing, API routes co-located with UI, RSC-ready |
-| UI library | React | 19.2.4 | Component model, hooks |
-| Styling | Tailwind CSS v4 | ^4 | Utility classes, dark mode, typography plugin |
-| AI | Anthropic Claude | `claude-sonnet-4-6` | Capable instruction-following, cost-effective |
-| AI SDK | `@anthropic-ai/sdk` | ^0.106 | Official typed client |
-| Math rendering | KaTeX + remark-math + rehype-katex | — | Inline LaTeX in AI responses |
-| Markdown | react-markdown | ^10 | Safe Markdown rendering in chat |
-| Handwriting font | Caveat (Google Fonts via Next.js) | — | Notebook chat aesthetic |
-| Type checking | TypeScript | ^5 | Catches shape mismatches between API and UI |
+### Frontend
+
+| Technology | Version | Purpose |
+|-----------|---------|---------|
+| **Next.js** (App Router) | 16.2.9 | Framework — file-based routing, React Server Components, co-located API routes |
+| **React** | 19.2.4 | Component model and hooks |
+| **TypeScript** | ^5 | Static typing across the entire codebase |
+| **Tailwind CSS v4** | ^4 | Utility-first styling, dark mode variants, responsive breakpoints |
+| **@tailwindcss/typography** | ^0.5.20 | `prose` classes for AI-generated Markdown content |
+| **Caveat** (Google Fonts via `next/font`) | — | Handwriting font for the notebook chat aesthetic |
+| **Geist Sans / Geist Mono** | — | App UI and code font (Next.js default) |
+
+### AI & Content Rendering
+
+| Technology | Version | Purpose |
+|-----------|---------|---------|
+| **Anthropic Claude** (`claude-sonnet-4-6`) | — | Socratic tutor, exam generation, grading, review walkthroughs |
+| **@anthropic-ai/sdk** | ^0.106.0 | Official typed Anthropic API client |
+| **react-markdown** | ^10.1.0 | Renders Markdown returned by Claude |
+| **remark-math** | ^6.0.0 | Parses LaTeX math in Markdown (`$...$`, `$$...$$`) |
+| **rehype-katex** | ^7.0.1 | Renders parsed math using KaTeX |
+| **katex** | ^0.17.0 | KaTeX math renderer (CSS + runtime) |
+
+### Authentication
+
+| Technology | Version | Purpose |
+|-----------|---------|---------|
+| **Clerk** (`@clerk/nextjs`) | ^7.5.10 | User authentication — Google, Apple, GitHub, email, phone number sign-in. Pre-built modal UI, session management, server-side `auth()` helper |
+
+### Database & ORM
+
+| Technology | Version | Purpose |
+|-----------|---------|---------|
+| **Neon** (PostgreSQL) | — | Serverless Postgres database hosted in AWS Sydney (closest region to Melbourne) |
+| **Prisma** | ^7.8.0 | ORM — schema definition, migrations, type-safe query client |
+| **@prisma/adapter-neon** | ^7.8.0 | Prisma driver adapter for Neon's HTTP protocol |
+| **@neondatabase/serverless** | ^1.1.0 | Neon serverless HTTP driver (works in Vercel Edge/serverless functions) |
+
+### Analytics & Observability
+
+| Technology | Version | Purpose |
+|-----------|---------|---------|
+| **@vercel/analytics** | ^2.0.1 | Page view tracking, top pages, device and country breakdowns. Dashboard at vercel.com |
+
+### Infrastructure
+
+| Technology | Version | Purpose |
+|-----------|---------|---------|
+| **Vercel** | — | Hosting, CI/CD, serverless functions, environment variable management |
+| **GitHub** | — | Source control (`github.com/SanMishAI/ai-tutor`) |
+| **dotenv** | ^17.4.2 | Loads `.env.local` into `prisma.config.ts` for local Prisma CLI operations |
 
 ---
 
@@ -73,28 +123,47 @@ SelectEd is a single-page web application that prepares students for six Austral
 ```
 ai-tutor/
 ├── app/
+│   ├── about/
+│   │   └── page.tsx                  # Founder story page (/about)
 │   ├── api/
 │   │   ├── chat/
-│   │   │   └── route.ts          # Socratic tutor (chat + practice)
-│   │   └── exam/
-│   │       ├── generate/
-│   │       │   └── route.ts      # Generates 10 exam questions
-│   │       ├── grade/
-│   │       │   └── route.ts      # Grades submitted answers
-│   │       └── review/
-│   │           └── route.ts      # Step-by-step AI walkthroughs for wrong answers
+│   │   │   └── route.ts              # Socratic tutor (chat + practice)
+│   │   ├── conversations/
+│   │   │   └── route.ts              # GET/POST/DELETE user conversations (auth-protected)
+│   │   ├── exam/
+│   │   │   ├── generate/route.ts     # Generates 10 exam questions
+│   │   │   ├── grade/route.ts        # Grades submitted answers
+│   │   │   └── review/route.ts       # Step-by-step AI walkthroughs for wrong answers
+│   │   ├── exam-results/
+│   │   │   └── route.ts              # GET/POST exam results (auth-protected)
+│   │   └── practice-results/
+│   │       └── route.ts              # POST practice results (auth-protected)
 │   ├── components/
-│   │   ├── ExamView.tsx           # All exam UI (setup → in-progress → results → review)
-│   │   └── Sidebar.tsx            # Chat history sidebar
-│   ├── globals.css                # Tailwind import, dark-mode custom properties
-│   ├── layout.tsx                 # Root layout: fonts (Geist, Caveat), KaTeX CSS, metadata
-│   ├── page.tsx                   # Main page: splash, header, controls, chat/practice/exam
-│   └── types.ts                   # Shared TypeScript types
-├── public/                        # Static assets (favicon, SVGs)
-├── .env.local                     # ANTHROPIC_API_KEY (never committed)
+│   │   ├── ExamView.tsx              # All exam UI (setup → in-progress → results → review)
+│   │   └── Sidebar.tsx               # Chat history sidebar
+│   ├── generated/
+│   │   └── prisma/                   # Auto-generated Prisma client (do not edit)
+│   ├── sign-in/[[...sign-in]]/
+│   │   └── page.tsx                  # Clerk sign-in page (/sign-in)
+│   ├── sign-up/[[...sign-up]]/
+│   │   └── page.tsx                  # Clerk sign-up page (/sign-up)
+│   ├── globals.css                   # Tailwind import, dark-mode custom properties
+│   ├── layout.tsx                    # Root layout: fonts, KaTeX CSS, ClerkProvider, Analytics
+│   ├── page.tsx                      # Main page: splash, header, controls, chat/practice/exam
+│   └── types.ts                      # Shared TypeScript types
+├── lib/
+│   └── db.ts                         # Prisma client singleton (with Neon HTTP adapter)
+├── prisma/
+│   ├── migrations/                   # Prisma migration history
+│   └── schema.prisma                 # Database schema (Conversation, ExamResult, PracticeResult)
+├── public/
+│   └── san.jpeg                      # Founder photo (About page)
+├── middleware.ts                     # Clerk auth middleware (runs on every request)
+├── prisma.config.ts                  # Prisma 7 config (datasource URL, migration path)
+├── .env.local                        # All secrets — never committed (see Section 12)
 ├── package.json
 ├── tsconfig.json
-└── DESIGN.md                      # ← this file
+└── DESIGN.md                         # ← this file
 ```
 
 ---
@@ -102,57 +171,41 @@ ai-tutor/
 ## 4. High-Level Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                        Browser                          │
-│                                                         │
-│  ┌───────────┐   ┌─────────────┐   ┌────────────────┐  │
-│  │  Splash   │   │  page.tsx   │   │  ExamView.tsx  │  │
-│  │  Screen   │──▶│  (main app) │──▶│  (exam flow)   │  │
-│  └───────────┘   └──────┬──────┘   └───────┬────────┘  │
-│                         │                  │            │
-│              ┌──────────┼──────────────────┘            │
-│              │          │                               │
-│        Sidebar.tsx   localStorage                       │
-│        (history)     (conversations)                    │
-└──────────────┼──────────────────────────────────────────┘
-               │  fetch (JSON over HTTP)
-               ▼
-┌─────────────────────────────────────────────────────────┐
-│                   Next.js API Routes                    │
-│                                                         │
-│  POST /api/chat          POST /api/exam/generate        │
-│  POST /api/exam/grade    POST /api/exam/review          │
-└──────────────┬──────────────────────────────────────────┘
-               │  @anthropic-ai/sdk
-               ▼
-┌─────────────────────────────────────────────────────────┐
-│              Anthropic API  (claude-sonnet-4-6)         │
-└─────────────────────────────────────────────────────────┘
-```
+┌──────────────────────────────────────────────────────────────┐
+│                           Browser                            │
+│                                                              │
+│  ┌──────────┐   ┌──────────────┐   ┌─────────────────────┐  │
+│  │  Splash  │   │  page.tsx    │   │   ExamView.tsx       │  │
+│  │  Screen  │──▶│  (main app)  │──▶│   (exam flow)        │  │
+│  └──────────┘   └──────┬───────┘   └──────────┬──────────┘  │
+│                        │                      │              │
+│             ┌──────────┼──────────────────────┘              │
+│             │          │                                     │
+│       Sidebar.tsx   localStorage (guest)                     │
+│       (history)     OR /api/conversations (signed in)        │
+└─────────────┼────────────────────────────────────────────────┘
+              │  fetch (JSON over HTTPS)
+              ▼
+┌──────────────────────────────────────────────────────────────┐
+│                    Next.js API Routes                        │
+│                                                              │
+│  POST  /api/chat                POST /api/exam/generate      │
+│  POST  /api/exam/grade          POST /api/exam/review        │
+│  GET   /api/conversations       POST /api/conversations      │
+│  DELETE /api/conversations      POST /api/exam-results       │
+│  POST  /api/practice-results                                 │
+└──────────┬──────────────────────────┬───────────────────────┘
+           │  @anthropic-ai/sdk       │  Prisma + Neon adapter
+           ▼                          ▼
+┌─────────────────────┐   ┌──────────────────────────────────┐
+│  Anthropic API      │   │  Neon PostgreSQL (AWS Sydney)     │
+│  claude-sonnet-4-6  │   │  Conversation, ExamResult,        │
+└─────────────────────┘   │  PracticeResult tables            │
+                          └──────────────────────────────────┘
 
-### Request lifecycle
-
-```
-User types message
-       │
-       ▼
-page.tsx  sendMessage()
-       │  builds messages array
-       │  calls fetch("/api/chat", { method: "POST", body: JSON })
-       ▼
-/api/chat/route.ts
-       │  picks system prompt (chat vs practice)
-       │  appends subject + yearLevel context
-       │  calls client.messages.create(...)
-       ▼
-Anthropic API
-       │  streams / returns text
-       ▼
-route.ts  returns { reply: string }
-       ▼
-page.tsx  appends assistant message to state
-          saves to localStorage
-          re-focuses input
+Auth layer (middleware.ts + Clerk):
+  Every request → Clerk middleware → session validated
+  API routes call auth() to get userId before touching DB
 ```
 
 ---
@@ -169,6 +222,7 @@ Home (page.tsx)
     ├── <header>
     │   ├── ☰ sidebar toggle button
     │   ├── <Wordmark />          gradient "SelectEd" + coloured tagline
+    │   ├── <AuthButton />        "Sign in" (guest) | <UserButton /> (signed in)
     │   └── <Logo />              illustrated SVG icon (student + stairs)
     │
     ├── <Sidebar />               slide-in chat history
@@ -210,16 +264,7 @@ Home (page.tsx)
 
 Shown on first load (`splashDone` state starts `false`). Clicking the **SelectEd** wordmark in the header at any time resets `splashDone` to `false`, returning here.
 
-```
-State:  splashDone: boolean  (useState, not persisted)
-
-Flow:
-  App loads → splashDone === false → render splash
-  "Start Learning →" clicked → setSplashDone(true) → render main app
-  Wordmark clicked (in header) → setSplashDone(false) → splash again
-```
-
-Design: full-screen dark (`#0a0b1a`), the illustrated `<Logo />` centered (responsive: `min(70vw, 320px)` wide with `height: auto`), purple/cyan neon glow blobs (halved on mobile via `sm:` breakpoint), gradient button.
+Design: full-screen dark (`#0a0b1a`), the illustrated `<Logo />` centered (responsive: `min(70vw, 320px)` wide with `height: auto`), purple/cyan neon glow blobs (halved on mobile via `sm:` breakpoint), gradient button, subtle "About the founder" link at the bottom.
 
 ---
 
@@ -229,7 +274,7 @@ Design: full-screen dark (`#0a0b1a`), the illustrated `<Logo />` centered (respo
 User types → sendMessage() → POST /api/chat → reply appended → scrolls to bottom
 ```
 
-**Notebook paper effect** — achieved entirely with CSS `background-image` on the chat container:
+**Notebook paper effect** — achieved with CSS `background-image`:
 
 ```
 Light mode:
@@ -247,7 +292,7 @@ Dark mode (isDark detected via window.matchMedia):
 
 `backgroundAttachment: local` keeps lines locked to content when scrolling.
 
-Font: **Caveat** (Google Fonts, loaded via Next.js `next/font/google`, exposed as CSS variable `--font-caveat`).
+Font: **Caveat** (Google Fonts, loaded via `next/font/google`, CSS variable `--font-caveat`).
 
 | Role | Light ink | Dark ink |
 |------|-----------|----------|
@@ -256,7 +301,7 @@ Font: **Caveat** (Google Fonts, loaded via Next.js `next/font/google`, exposed a
 | Tutor (label) | `#b45309` amber-700 | `#ffffff` white |
 | Tutor (text) | `#431407` dark brown | `#ffffff` white |
 
-Loading state: animated ✏️ and blinking cursor `|` in tutor ink colour.
+Prose colour fix: `@tailwindcss/typography` sets `color: var(--tw-prose-body)` explicitly on child elements. These CSS custom properties are overridden via inline `style` on the prose container: `--tw-prose-body`, `--tw-prose-headings`, `--tw-prose-bold`, etc. Both the custom property override and `[&_*]:!text-inherit` are applied for maximum cross-browser coverage.
 
 ---
 
@@ -264,7 +309,6 @@ Loading state: animated ✏️ and blinking cursor `|` in tutor ink colour.
 
 ```
 "Get Practice Problem" clicked
-  → builds system prompt asking Claude to generate a problem
   → POST /api/chat  (mode="practice" system prompt)
   → problem appears as assistant message
 
@@ -275,20 +319,13 @@ Student types answer
 
 attemptCount >= 5  → "Reveal Answer" button appears
   → sends "I give up. Please reveal the full solution."
-  → Claude provides complete worked solution
 ```
-
-**System prompt rules for practice** (in `/api/chat/route.ts`):
-- Never give answer directly
-- Give a small hint only
-- Reveal only on explicit give-up OR after 5 genuine attempts
-- Praise correct partial reasoning
 
 ---
 
 ### 6.4 Exam Mode — State Machine
 
-`ExamView.tsx` owns a local state machine with these states:
+`ExamView.tsx` owns a local state machine:
 
 ```
   ┌─────────┐
@@ -299,27 +336,22 @@ attemptCount >= 5  → "Reveal Answer" button appears
   ┌───────────┐
   │ generating │  POST /api/exam/generate → 10 questions JSON
   └─────┬─────┘
-        │ questions arrive
         ▼
-  ┌─────────────┐     timer hits 0 or
-  │ in_progress  │ ──────────────────────▶ ┌────────────┐
-  └─────────────┘     "Submit" clicked      │ submitting │
-                                            └─────┬──────┘
-                                                  │ POST /api/exam/grade
-                                                  ▼
-                                            ┌─────────┐
-                                            │ results │
-                                            └─────────┘
+  ┌─────────────┐     timer hits 0 or "Submit" clicked
+  │ in_progress  │ ──────────────────────────────────▶ ┌────────────┐
+  └─────────────┘                                       │ submitting │
+                                                        └─────┬──────┘
+                                                              │ POST /api/exam/grade
+                                                              ▼
+                                                        ┌─────────┐
+                                                        │ results │ → onFinish() saves to cloud
+                                                        └─────────┘
 ```
 
-**Timer** uses `setInterval` inside `useEffect`. The submit function is stored in a `useRef` (`submitRef`) so the stale-closure problem in the interval callback is avoided.
+**Timer** uses `setInterval` in `useEffect`. The submit function is stored in `useRef` (`submitRef`) to avoid stale-closure bugs in the interval callback.
 
-**Two-minute warning**: when `timeLeft === 121` (121 seconds = 2:01 remaining) the warning banner appears.
-
-**Question formats** (defined in `/api/exam/generate/route.ts`):
-
-| Exam | Format |
-|------|--------|
+| Exam | Question format |
+|------|----------------|
 | AMC | 7 MC (5 options A–E) + 3 open-ended |
 | Maths Olympiad | 10 open-ended (proof/reasoning) |
 | ACER | 10 MC (4 options A–D) |
@@ -331,228 +363,258 @@ attemptCount >= 5  → "Reveal Answer" button appears
 
 ### 6.5 Exam Mistake Review
 
-Triggered by the **"📖 Review N Mistakes with AI Tutor"** button on the results screen.
-
-```
-fetchReview(results) called
-  │
-  ├── filters results to wrong answers only
-  ├── builds wrongQuestions array:
-  │     { id, text, type, options, studentAnswer, correctAnswer }
-  ├── POST /api/exam/review  { subject, wrongQuestions }
-  │
-  ▼
-/api/exam/review/route.ts
-  │  Claude writes per-question walkthroughs:
-  │    1. What the question was asking
-  │    2. Where the student went wrong
-  │    3. Correct approach step-by-step
-  │    4. Memorable tip
-  │  Returns { reviews: [{ id, walkthrough }] }
-  ▼
-reviewData state populated  (Record<questionId, walkthrough>)
-showReview = true  → review view rendered
-```
-
-Review view: each wrong question gets a card with:
-- Red "Your answer" / Green "Correct answer" side-by-side
-- Blue "Step-by-step walkthrough" panel (Markdown + KaTeX)
+On the results screen, the **"📖 Review N Mistakes with AI Tutor"** button calls `POST /api/exam/review` with all wrong answers. Claude returns per-question walkthroughs (what was asked, where the student went wrong, correct approach, memorable tip). Rendered as Markdown + KaTeX cards.
 
 ---
 
 ### 6.6 Chat History Sidebar
 
-**Responsive behaviour:** The sidebar is collapsed by default. On mount, `useEffect` checks `window.innerWidth >= 640` (Tailwind's `sm` breakpoint) and opens it automatically on desktop. On mobile it stays closed; the ☰ header button toggles it. When open on mobile, the sidebar renders as a `fixed` overlay (z-50) on top of the content with a semi-transparent backdrop (`bg-black/50`) behind it — tapping the backdrop or selecting a conversation closes it. On sm+ it is `relative` and inline, pushing the content to the right.
+**Responsive behaviour:** Collapsed by default on mobile, open on desktop (≥ 640px). `useEffect` on mount uses `window.matchMedia("(min-width: 640px)")` with a `change` listener to track orientation changes. On mobile, the sidebar is a `fixed` overlay (z-50) with a semi-transparent backdrop — tapping closes it. On desktop, it is `relative` inline.
 
-All conversations are kept in `localStorage` under the key `tutormate_conversations` (array of `Conversation` objects).
-
-```
-Conversation {
-  id:        string          (timestamp)
-  title:     string          (first 38 chars of first message)
-  subject:   string
-  messages:  Message[]
-  mode:      "chat" | "practice"
-  createdAt: string          (ISO 8601)
-}
-```
-
-`Sidebar.tsx` displays conversations in reverse-chronological order. Dates are shown as "Today", "Yesterday", or `dd/mm/yyyy`. A subject abbreviation badge is extracted from the exam name (e.g. `(AMC)` → `AMC`).
-
-Selecting a conversation loads its messages into the main view. Deleting removes it from `localStorage`.
+**Storage:** When the user is a guest, conversations are stored in `localStorage` under `tutormate_conversations`. When signed in, they are loaded from and saved to the Neon database via `/api/conversations`.
 
 ---
 
 ## 7. API Routes
 
-All routes are `POST`, accept and return JSON.
+### AI routes (no auth required)
 
-### `POST /api/chat`
+#### `POST /api/chat`
+Socratic tutor for chat and practice modes.
 
-**Purpose:** Socratic tutor responses for chat and practice modes.
-
-**Request body:**
 ```json
-{
-  "messages":  [{ "role": "user"|"assistant", "content": "string" }],
-  "subject":   "Australian Mathematics Competition (AMC)",
-  "yearLevel": "Year 7–8 (Junior)",
-  "mode":      "chat" | "practice"
-}
-```
+// Request
+{ "messages": [...], "subject": "string", "yearLevel": "string", "mode": "chat|practice" }
 
-**Response:**
-```json
+// Response
 { "reply": "string" }
 ```
 
-Two system prompts live here — one for chat (explain concepts, never give answers) and one for practice (generate problems, guide without revealing).
+#### `POST /api/exam/generate`
+Generates 10 exam questions as JSON.
 
----
-
-### `POST /api/exam/generate`
-
-**Purpose:** Generates 10 exam questions in JSON.
-
-**Request body:**
 ```json
+// Request
 { "subject": "string", "yearLevel": "string" }
+
+// Response
+{ "questions": [{ "id": 1, "text": "string", "type": "multiple_choice", "options": [...] }] }
 ```
 
-**Response:**
+#### `POST /api/exam/grade`
+Grades all submitted answers.
+
 ```json
-{
-  "questions": [
-    { "id": 1, "text": "string", "type": "multiple_choice", "options": ["A. ...", "B. ..."] },
-    { "id": 2, "text": "string", "type": "open_ended" }
-  ]
-}
+// Request
+{ "subject": "string", "questions": [...], "answers": { "1": "A", "2": "..." } }
+
+// Response
+{ "results": [{ "id": 1, "correct": true, "correctAnswer": "string", "yourAnswer": "string", "explanation": "string", "question": {...} }] }
 ```
 
-Uses `extractJson()` helper to strip markdown fences from Claude's response before parsing.
+#### `POST /api/exam/review`
+Generates step-by-step walkthroughs for wrong answers.
 
----
-
-### `POST /api/exam/grade`
-
-**Purpose:** Grades all 10 submitted answers.
-
-**Request body:**
 ```json
-{
-  "subject": "string",
-  "questions": [ExamQuestion],
-  "answers": { "1": "A. answer text", "2": "student wrote..." }
-}
-```
+// Request
+{ "subject": "string", "wrongQuestions": [{ "id": 1, "text": "...", "studentAnswer": "...", "correctAnswer": "..." }] }
 
-**Response:**
-```json
-{
-  "results": [
-    {
-      "id": 1,
-      "correct": true,
-      "correctAnswer": "string",
-      "explanation": "one-line explanation",
-      "question": { ...original ExamQuestion... }
-    }
-  ]
-}
+// Response
+{ "reviews": [{ "id": 1, "walkthrough": "Full markdown + LaTeX..." }] }
 ```
 
 ---
 
-### `POST /api/exam/review`
+### Data routes (Clerk auth required — return 401 if not signed in)
 
-**Purpose:** Generates detailed step-by-step walkthroughs for wrong answers only.
+#### `GET /api/conversations`
+Returns all conversations for the signed-in user, ordered by `createdAt` descending.
 
-**Request body:**
+#### `POST /api/conversations`
+Upserts a conversation (creates if new, updates messages if existing).
+
 ```json
-{
-  "subject": "string",
-  "wrongQuestions": [
-    {
-      "id": 1,
-      "text": "string",
-      "type": "multiple_choice",
-      "options": [...],
-      "studentAnswer": "string",
-      "correctAnswer": "string"
-    }
-  ]
-}
+// Request body
+{ "id": "string", "title": "string", "subject": "string", "yearLevel": "string", "mode": "chat|practice", "messages": [...] }
 ```
 
-**Response:**
+#### `DELETE /api/conversations`
+Deletes a conversation by id (only if it belongs to the signed-in user).
+
 ```json
-{
-  "reviews": [
-    { "id": 1, "walkthrough": "Full markdown + LaTeX walkthrough..." }
-  ]
-}
+// Request body
+{ "id": "string" }
+```
+
+#### `POST /api/exam-results`
+Saves an exam result after the exam is graded.
+
+```json
+// Request body
+{ "subject": "string", "yearLevel": "string", "score": 7, "total": 10, "timeTaken": 1823, "wrongAnswers": [...] }
+```
+
+#### `GET /api/exam-results`
+Returns all exam results for the signed-in user, ordered by `createdAt` descending.
+
+#### `POST /api/practice-results`
+Records a single practice question attempt.
+
+```json
+// Request body
+{ "subject": "string", "yearLevel": "string", "question": "string", "correct": true }
 ```
 
 ---
 
 ## 8. State Management
 
-All state lives in two places: **`page.tsx`** (app-level) and **`ExamView.tsx`** (exam-level). There is no global store.
+All state lives in two components. There is no global store.
 
 ### `page.tsx` state
 
-| State variable | Type | Purpose |
-|---------------|------|---------|
+| Variable | Type | Purpose |
+|----------|------|---------|
 | `splashDone` | `boolean` | Controls splash vs main app |
-| `isDark` | `boolean` | OS dark-mode preference (drives notebook colours) |
-| `conversations` | `Conversation[]` | Full chat history, synced to localStorage |
-| `activeId` | `string \| null` | Which conversation is open |
-| `input` | `string` | Current input box value |
+| `isDark` | `boolean` | OS dark-mode preference |
+| `conversations` | `Conversation[]` | Chat history — sourced from DB (signed in) or localStorage (guest) |
+| `activeId` | `string \| null` | Which conversation is currently open |
+| `input` | `string` | Current text input value |
 | `loading` | `boolean` | AI request in flight |
 | `mode` | `"chat"\|"practice"\|"exam"` | Active mode tab |
 | `subject` | `string` | Selected exam type |
 | `yearLevel` | `string` | Selected year level |
-| `sidebarOpen` | `boolean` | Sidebar visibility (default `false`; set to `true` on mount if viewport ≥ 640px) |
+| `sidebarOpen` | `boolean` | Sidebar visibility (default `false`; `true` on mount if ≥ 640px) |
 | `attemptCount` | `number` | Practice mode attempt counter |
 | `practiceActive` | `boolean` | Whether a practice problem is running |
 
 ### `ExamView.tsx` state
 
-| State variable | Type | Purpose |
-|---------------|------|---------|
-| `examState` | `ExamState` | Current state-machine node |
-| `duration` | `number` | Selected minutes (30/45/60) |
+| Variable | Type | Purpose |
+|----------|------|---------|
+| `examState` | `ExamState` | State-machine node (`setup\|generating\|in_progress\|submitting\|results`) |
+| `duration` | `number` | Selected duration in minutes (30/45/60) |
 | `questions` | `ExamQuestion[]` | Generated questions |
-| `answers` | `Record<number, string>` | Student's answers keyed by question id |
+| `answers` | `Record<number, string>` | Student answers keyed by question id |
 | `currentQ` | `number` | Index of the visible question |
 | `timeLeft` | `number` | Seconds remaining |
 | `showWarning` | `boolean` | 2-minute warning banner visible |
 | `results` | `GradedResult[]` | Graded results from Claude |
-| `error` | `string` | Error message if API fails |
-| `showReview` | `boolean` | Review screen vs results screen |
+| `error` | `string` | Error message if an API call fails |
+| `showReview` | `boolean` | Review screen vs results summary |
 | `reviewData` | `Record<number, string>` | AI walkthroughs keyed by question id |
-| `reviewLoading` | `boolean` | Review API in flight |
+| `reviewLoading` | `boolean` | Review API call in flight |
 
 ---
 
 ## 9. Data Persistence
 
-The only persistence today is **`localStorage`** for chat conversations.
+### Storage strategy
+
+| User state | Where data lives | Mechanism |
+|------------|-----------------|-----------|
+| Guest (not signed in) | Browser localStorage | `loadConversations()` / `saveMessages()` in `page.tsx` |
+| Signed in | Neon PostgreSQL | `/api/conversations`, `/api/exam-results`, `/api/practice-results` |
+
+On mount, `useEffect` checks `isSignedIn` (from Clerk's `useUser()`). If signed in, conversations are fetched from the API. If not, they are loaded from localStorage. The guest localStorage path is fully preserved — no login is required to use the app.
+
+### Database schema (Prisma)
+
+```prisma
+model Conversation {
+  id        String   @id
+  userId    String                   // Clerk user ID
+  title     String
+  subject   String
+  yearLevel String
+  mode      String
+  messages  Json                     // Message[] serialised as JSON
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([userId])
+}
+
+model ExamResult {
+  id           String   @id @default(cuid())
+  userId       String
+  subject      String
+  yearLevel    String
+  score        Int
+  total        Int
+  timeTaken    Int?                  // seconds
+  wrongAnswers Json
+  createdAt    DateTime @default(now())
+  @@index([userId])
+}
+
+model PracticeResult {
+  id        String   @id @default(cuid())
+  userId    String
+  subject   String
+  yearLevel String
+  question  String
+  correct   Boolean
+  createdAt DateTime @default(now())
+  @@index([userId])
+}
+```
+
+### localStorage key (guest fallback)
 
 ```
 Key:   "tutormate_conversations"
 Value: JSON array of Conversation objects
 ```
 
-Write happens in `saveMessages()` inside `page.tsx`, called after every AI response. Read happens in `useEffect` on mount via `loadConversations()`.
+---
 
-**Limits:** No cross-device sync. No authentication. Conversations survive browser refresh but not clearing localStorage. Max storage is browser-dependent (~5–10 MB).
+## 10. Authentication
 
-**Planned (Phase 4):** Replace localStorage with a server-side database behind user accounts, enabling cross-device access, score history, and leaderboards.
+Authentication is handled by **Clerk** (`@clerk/nextjs` v7).
+
+### Sign-in methods available
+- Google OAuth
+- Apple Sign-In
+- GitHub OAuth
+- Email + password
+- Phone number (SMS OTP)
+
+### Architecture
+
+```
+middleware.ts  (clerkMiddleware)
+  └── runs on every request
+  └── makes session available to server components and API routes
+
+app/layout.tsx
+  └── <ClerkProvider> wraps the entire app
+
+page.tsx
+  └── <AuthButton /> — renders "Sign in" button (guest) or <UserButton /> (signed in)
+  └── useUser() — reads isSignedIn to decide localStorage vs cloud
+
+API routes
+  └── auth() from "@clerk/nextjs/server" → returns { userId }
+  └── 401 returned if no session
+```
+
+### Sign-in / sign-up pages
+
+| Route | File | Notes |
+|-------|------|-------|
+| `/sign-in` | `app/sign-in/[[...sign-in]]/page.tsx` | Clerk's pre-built `<SignIn />` component, dark background |
+| `/sign-up` | `app/sign-up/[[...sign-up]]/page.tsx` | Clerk's pre-built `<SignUp />` component, dark background |
+
+Sign-in can also be triggered as a modal from anywhere in the app (no page navigation needed).
+
+### User experience
+- Guest mode is fully preserved. No login is required to use the app.
+- When signed in, the user's avatar appears in the header. Clicking opens account management and sign-out.
+- After signing in, conversations load from the cloud database automatically.
 
 ---
 
-## 10. UI & Design System
+## 11. UI & Design System
 
 ### Colour palette
 
@@ -560,7 +622,7 @@ Write happens in `saveMessages()` inside `page.tsx`, called after every AI respo
 |-------|-------|-------|
 | Primary | `#4338ca` indigo-700 | Buttons, focus rings |
 | Brand cyan | `#00e5ff` | Logo, wordmark gradient start |
-| Brand purple | `#7c3aed` | Logo, wordmark gradient end |
+| Brand purple | `#7c3aed` | Logo, wordmark gradient end, glow blobs |
 | Brand pink | `#ff44aa` | "Ed" suffix in wordmark |
 | Neon green | `#00ff80` | Stair edges in logo |
 | Amber | `#fbbf24` | Logo AI orb trail, practice labels |
@@ -568,68 +630,67 @@ Write happens in `saveMessages()` inside `page.tsx`, called after every AI respo
 | Paper dark | `#0d1117` | Dark-mode notebook background |
 | Line light | `#bfdbfe` | Ruled lines (light) |
 | Line dark | `#1a2744` | Ruled lines (dark) |
-| Margin light | `#fca5a5` | Red margin line (light) |
-| Margin dark | `#3d1530` | Red margin line (dark) |
+| Splash bg | `#0a0b1a` | Splash screen and About page background |
 
 ### Typography
 
 | Context | Font | Size |
 |---------|------|------|
-| App UI | Geist Sans (Next.js default) | Tailwind defaults |
+| App UI | Geist Sans | Tailwind defaults |
 | Monospace | Geist Mono | Tailwind defaults |
 | Notebook chat | Caveat (Google Fonts) | 20px, line-height 32px |
 | Notebook labels | system-ui | 11px uppercase |
-| Logo wordmark | Arial Black / Impact | 34px italic |
+| Logo wordmark | Arial Black / Impact | `clamp(22px, 5.5vw, 34px)` |
 
 ### Dark mode
 
-Dark mode is driven by the OS `prefers-color-scheme` media query. Tailwind's `dark:` variants handle most components. The notebook's inline styles use a `isDark` React state value that is populated by `window.matchMedia` in a `useEffect`.
+Driven by the OS `prefers-color-scheme` media query. Tailwind `dark:` variants handle most components. The notebook's inline styles use a React `isDark` state populated by `window.matchMedia` in a `useEffect`.
 
 ### Responsive / mobile design
 
-The app is designed mobile-first at the Tailwind `sm` (640px) breakpoint.
+Designed mobile-first at the Tailwind `sm` (640px) breakpoint. Viewport uses `h-[100dvh]` (dynamic viewport height) to handle iOS Safari's collapsible toolbar.
 
 | Area | Mobile (< 640px) | Desktop (≥ 640px) |
 |------|-----------------|-------------------|
-| Viewport height | `h-[100dvh]` (dynamic, avoids iOS Safari toolbar) | same |
-| Splash logo | `min(70vw, 320px)` wide | 320px |
-| Splash glow blobs | `w-48 h-48` | `w-96 h-96` |
 | Sidebar | Fixed overlay, collapsed by default | Inline column, open by default |
-| Sidebar backdrop | Semi-transparent overlay, tap to close | Not rendered |
+| Sidebar backdrop | Semi-transparent, tap to close | Not rendered |
 | Main padding | `p-2` | `p-4` |
+| Splash logo | `min(70vw, 320px)` | 320px |
 | Wordmark font | `clamp(22px, 5.5vw, 34px)` | 34px |
-| Exam navigator buttons | `40×40px` (minimum touch target) | `32×32px` |
-| Review answer grid | `grid-cols-1` | `grid-cols-2` |
-| Practice controls | `flex-wrap` | same |
-| Viewport meta | `width=device-width, initialScale=1, maximumScale=1` | same |
+| Exam navigator buttons | 40×40px | 32×32px |
 
 ### Logo components
 
 | Component | Usage |
 |-----------|-------|
-| `<Logo size={n} style={...}/>` | Illustrated SVG (student on stairs, flag, orb). Uses CSS `style` (not HTML attributes) so width can be overridden. Used in header (right, 56px) and splash (responsive). Inline SVG with `<defs>` for gradients and neon glow filters. |
-| `<Wordmark />` | Pure HTML/CSS. "Select" in cyan→blue gradient, "Ed" in pink→purple gradient. "Sharpen · Sit · Succeed." in green/blue/amber. Used in header (left). Clicking returns to splash. Font size uses `clamp()` for responsiveness. |
+| `<Logo size={n} style={...}/>` | Illustrated SVG (student on stairs, flag, orb). CSS `style` attribute used so width can be overridden. |
+| `<Wordmark />` | Pure HTML/CSS. "Select" in cyan→blue gradient, "Ed" in pink→purple. Font size uses `clamp()`. Clicking returns to splash. |
+| `<AuthButton />` | Shows "Sign in" button for guests or Clerk's `<UserButton />` for signed-in users. |
 
 ---
 
-## 11. Environment Variables
+## 12. Environment Variables
+
+All secrets live in `.env.local` at the project root. This file is in `.gitignore` and is **never committed**.
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `ANTHROPIC_API_KEY` | Yes | Claude API key from console.anthropic.com |
+| `ANTHROPIC_API_KEY` | Yes | Claude API key — `console.anthropic.com` |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Yes | Clerk publishable key — `dashboard.clerk.com` |
+| `CLERK_SECRET_KEY` | Yes | Clerk secret key — `dashboard.clerk.com` |
+| `NEXT_PUBLIC_CLERK_SIGN_IN_URL` | Yes | `/sign-in` |
+| `NEXT_PUBLIC_CLERK_SIGN_UP_URL` | Yes | `/sign-up` |
+| `NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL` | Yes | `/` |
+| `NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL` | Yes | `/` |
+| `POSTGRES_PRISMA_URL` | Yes | Neon pooled connection string (for Prisma queries) — added automatically by Vercel when Neon is connected |
+| `POSTGRES_URL_NON_POOLING` | Yes | Neon direct connection string (for Prisma Migrate) |
+| `DATABASE_URL` | Yes | Neon pooled URL (general use) |
 
-Store in `.env.local` at the project root. This file is in `.gitignore` and must **never** be committed.
-
-```
-# .env.local
-ANTHROPIC_API_KEY=sk-ant-...
-```
-
-Next.js automatically loads `.env.local` and makes variables available to server-side code (API routes). Variables are **not** exposed to the browser.
+All Neon variables (`POSTGRES_*`, `DATABASE_*`) are automatically injected into the Vercel project when the Neon integration is added via the Vercel Storage tab. They are pulled locally with `vercel env pull .env.local`.
 
 ---
 
-## 12. Local Development Setup
+## 13. Local Development Setup
 
 ### Prerequisites
 
@@ -638,6 +699,7 @@ Next.js automatically loads `.env.local` and makes variables available to server
 | Node.js | 18+ | `node --version` |
 | npm | 9+ | `npm --version` |
 | Git | any | `git --version` |
+| Vercel CLI | any | `vercel --version` |
 
 ### Steps
 
@@ -649,37 +711,56 @@ cd ai-tutor
 # 2. Install dependencies
 npm install
 
-# 3. Add your API key
-# Create a file called .env.local in the project root:
-#   ANTHROPIC_API_KEY=sk-ant-...
+# 3. Pull all environment variables from Vercel (includes Neon + Clerk keys)
+vercel env pull .env.local
 
-# 4. Start the dev server
+# 4. Re-add Clerk keys if they were removed by the pull
+#    (Clerk keys are only in the Production environment on Vercel)
+#    Add to .env.local:
+#      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+#      CLERK_SECRET_KEY=sk_test_...
+#      NEXT_PUBLIC_CLERK_SIGN_IN_URL=/sign-in
+#      NEXT_PUBLIC_CLERK_SIGN_UP_URL=/sign-up
+#      NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL=/
+#      NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/
+
+# 5. Generate Prisma client
+npx prisma generate
+
+# 6. Start the dev server
 npm run dev
 
-# 5. Open http://localhost:3000
+# 7. Open http://localhost:3000
 ```
 
-> **Important:** Start the dev server AFTER creating `.env.local`. If you create the file while the server is running, restart it (Ctrl+C then `npm run dev`) so the key is picked up.
+### Database commands
+
+```bash
+npx prisma generate           # Regenerate the Prisma client after schema changes
+npx prisma migrate dev        # Apply schema changes to Neon (creates a new migration)
+npx prisma studio             # Open Prisma Studio to browse data visually
+```
 
 ### Useful commands
 
 ```bash
-npm run dev      # Start dev server with hot reload
-npm run build    # Production build (catches type errors)
-npm run lint     # ESLint
-npx tsc --noEmit # Type-check without building
+npm run dev          # Start dev server with hot reload
+npm run build        # Production build (runs prisma generate first)
+npm run lint         # ESLint
+npx tsc --noEmit     # Type-check without building
+vercel --prod --yes  # Deploy to production
 ```
 
 ---
 
-## 13. Roadmap
+## 14. Roadmap
 
-### Phase 4 — User Accounts (planned)
+### Phase 4 — User Accounts ✅ COMPLETED (June 2026)
 
-- Sign-up / login (email + password or OAuth)
-- Server-side conversation storage (replaces localStorage)
-- Per-user score history with subject and date filters
-- Account settings (display name, preferred year level)
+- Sign-up / login (Google, Apple, GitHub, email, phone via Clerk)
+- Server-side conversation storage in Neon PostgreSQL
+- Exam results and practice results saved per user
+- Cross-device data sync — sign in on any device to access history
 
 ### Phase 5 — Gamification (planned)
 
@@ -687,26 +768,26 @@ npx tsc --noEmit # Type-check without building
 - **Leaderboard**: top users by weekly practice score, displayed by username
 - **Badges**: awarded for milestones (first exam, perfect score, 7-day streak, etc.)
 
----
+### Phase 6 — Accessibility & Expansion (planned)
+
+- Accessibility features: screen reader support, adjustable font size, high-contrast mode
+- Additional Australian exams added to the platform
+- Progress dashboard showing score trends over time per subject
 
 ---
 
-## 14. Deployment
+## 15. Deployment
 
-### Live URL
+### Live URLs
 
 | URL | Notes |
 |-----|-------|
 | `https://selected-ed.vercel.app` | Primary alias — share this one |
-| `https://ai-tutor-psi-three.vercel.app` | Original alias — also works |
+| `https://ai-tutor-psi-three.vercel.app` | Auto-updated production alias |
 
 ### Platform
 
-Hosted on **Vercel** (free hobby tier) under the `select-ed` team. All four API routes deploy as serverless functions (Dynamic rendering).
-
-### Environment variables on Vercel
-
-`ANTHROPIC_API_KEY` must be set in **Vercel dashboard → Project → Settings → Environment Variables** for Production, Preview, and Development environments. Without it, all AI calls fail with 500.
+Hosted on **Vercel** (hobby tier) under the `select-ed` team. All API routes deploy as serverless functions.
 
 ### Deploy command
 
@@ -714,39 +795,53 @@ Hosted on **Vercel** (free hobby tier) under the `select-ed` team. All four API 
 vercel --prod --yes
 ```
 
-Run from the project root. Vercel auto-builds with `npm run build` and deploys the output.
+After deploying, update the custom alias:
+
+```bash
+vercel ls --prod | grep "Ready" | head -1 | awk '{print $3}' | xargs -I{} vercel alias set {} selected-ed.vercel.app
+```
+
+### Environment variables on Vercel
+
+All variables in Section 12 must be set in **Vercel dashboard → Project → Settings → Environment Variables** for the Production environment. Neon variables are added automatically when the Neon integration is connected via the Storage tab.
 
 ---
 
-## 15. About Page
+## 16. About Page
 
-**Route:** `/about`  
-**File:** `app/about/page.tsx`  
-**Type:** Static server component (no client-side JS needed)
+**Route:** `/about`
+**File:** `app/about/page.tsx`
+**Type:** Static server component
 
-### Purpose
-Standalone marketing/brand page telling the founder's story. Accessible via a subtle "About the founder" link on the splash screen.
+Standalone marketing page telling the founder's story. Accessible via a subtle "About the founder" link on the splash screen.
 
-### Content
 | Section | Content |
 |---------|---------|
-| Hero | "Built by a dad. For every parent." headline + one-line hook |
-| Founder card | Name (Santrupta Mishra / San), title (Director, Global Consulting · Melbourne), avatar initial |
-| Origin Story | 4 paragraphs — son's exam prep, gap in the market, San building the solution |
-| Vision | Mission paragraph + 3 feature cards: Purpose-built, Low cost, Accessible |
-| CTA | "Start Learning →" button back to `/` |
+| Hero | "Built by a dad. For every parent." |
+| Founder card | Photo (`/public/san.jpeg`), Santrupta Mishra, Director Global Consulting · Melbourne |
+| Origin Story | Son's exam prep, gap in the market, building SelectEd |
+| Vision | Affordable, purpose-built, accessible — 3 feature cards |
+| CTA | "Start Learning →" back to `/` |
 
-### Design
-- Always dark (`#0a0b1a` background) — matches splash aesthetic
-- Same glow blobs (purple top-left, blue bottom-right) as splash
-- Max width `max-w-2xl`, centred, `px-6 py-12`
-- Text: white headings, `slate-300` body, `slate-400` meta
-- Feature cards: `rgba(255,255,255,0.03)` background, `border-white/10`
+Design: always dark (`#0a0b1a`), glow blobs, `max-w-2xl`, white headings, `slate-300` body text.
 
-### Navigation
-- Splash screen → "About the founder" link (dim grey, small) below exam list
-- About page → "← Back to SelectEd" top-left, "Start Learning →" CTA at bottom
+---
+
+## 17. Version History
+
+| Version | Date | Summary |
+|---------|------|---------|
+| **v0.1.0** | May 2026 | Initial build — Chat mode with Socratic tutor, notebook UI, Caveat font, ruled paper CSS effect, subject/year level selectors, localStorage conversation history, Sidebar component |
+| **v0.2.0** | May 2026 | Practice mode — Claude generates problems, up to 5 attempts with hints, Reveal Answer after 5th attempt |
+| **v0.3.0** | May 2026 | Exam mode — timed mock exams (30/45/60 min), question navigator, auto-submit on timer, grading, mistake review with AI walkthroughs, ExamView state machine |
+| **v0.4.0** | June 2026 | Mobile responsiveness — `h-[100dvh]` for iOS Safari, responsive logo (`min(70vw, 320px)`), sidebar overlay pattern for mobile, `window.matchMedia` change listener for orientation, iOS Safari backdrop click fix (`cursor-pointer`), close button in sidebar header |
+| **v0.5.0** | June 2026 | Dark mode notebook text fix — `@tailwindcss/typography` overrides `color` explicitly on child elements; fixed by setting `--tw-prose-body`, `--tw-prose-headings`, and other CSS custom properties via inline style on the prose container. Tutor text changed from amber (`#fde68a`) to white (`#ffffff`) after iOS Safari rendering issues |
+| **v0.6.0** | June 2026 | About page — `/about` route with founder story, photo, origin story, vision cards. "About the founder" link added to splash screen |
+| **v0.7.0** | June 2026 | Vercel Analytics — `@vercel/analytics` added to root layout; page views, devices, and countries visible in Vercel dashboard |
+| **v0.8.0** | June 2026 | User authentication — Clerk integration with Google, Apple, GitHub, email, and phone sign-in. Pre-built sign-in/sign-up pages. Sign in/out button in app header. Guest mode fully preserved |
+| **v0.9.0** | June 2026 | Cloud data persistence — Neon PostgreSQL database (AWS Sydney), Prisma 7 ORM with `prisma-client` generator and `PrismaNeonHttp` adapter. Three tables: `Conversation`, `ExamResult`, `PracticeResult`. Conversations, exam results, and practice results sync to the cloud for signed-in users. Guests continue to use localStorage |
 
 ---
 
 *Document last updated: June 2026. Updated alongside the codebase whenever routes, components, or UX decisions change.*
+*Author: Santrupta Mishra (San) — Founder, SelectEd*
