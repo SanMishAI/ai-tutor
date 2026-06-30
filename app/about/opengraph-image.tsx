@@ -12,124 +12,97 @@ export default async function OGImage() {
 
   return new ImageResponse(
     (
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          background: '#0a0b1a',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          position: 'relative',
-          overflow: 'hidden',
-        }}
-      >
-        {/* Purple glow — top left */}
-        <div
-          style={{
-            position: 'absolute',
-            width: 500,
-            height: 500,
-            borderRadius: 9999,
-            background: 'radial-gradient(circle, rgba(124,58,237,0.3) 0%, transparent 70%)',
-            top: -160,
-            left: -140,
-            display: 'flex',
-          }}
-        />
-        {/* Cyan glow — bottom right */}
-        <div
-          style={{
-            position: 'absolute',
-            width: 400,
-            height: 400,
-            borderRadius: 9999,
-            background: 'radial-gradient(circle, rgba(0,229,255,0.15) 0%, transparent 70%)',
-            bottom: -120,
-            right: -100,
-            display: 'flex',
-          }}
-        />
+      <div style={{ width: '100%', height: '100%', display: 'flex', position: 'relative' }}>
 
-        {/* Founder photo */}
+        {/* Full-bleed photo */}
         <img
           src={photoSrc}
-          width={148}
-          height={148}
           style={{
-            borderRadius: 9999,
-            border: '3px solid rgba(255,255,255,0.15)',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
             objectFit: 'cover',
-            marginBottom: 28,
+            objectPosition: 'center top',
           }}
         />
 
-        {/* Headline — two lines via flex column */}
+        {/* Dark gradient — bottom two-thirds so text is legible */}
         <div
           style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: '68%',
+            background: 'linear-gradient(to top, rgba(10,11,26,1) 0%, rgba(10,11,26,0.88) 45%, transparent 100%)',
+            display: 'flex',
+          }}
+        />
+
+        {/* Text content anchored to bottom-left */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            padding: '48px 64px',
             display: 'flex',
             flexDirection: 'column',
-            alignItems: 'center',
-            marginBottom: 20,
+            gap: 0,
           }}
         >
-          <span
+          {/* Headline */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            <span
+              style={{
+                fontSize: 64,
+                fontWeight: 900,
+                fontFamily: 'Arial Black, Impact, sans-serif',
+                color: '#ffffff',
+                lineHeight: 1.1,
+              }}
+            >
+              Built by a dad.
+            </span>
+            <span
+              style={{
+                fontSize: 64,
+                fontWeight: 900,
+                fontFamily: 'Arial Black, Impact, sans-serif',
+                color: '#ffffff',
+                lineHeight: 1.1,
+              }}
+            >
+              For every parent.
+            </span>
+          </div>
+
+          {/* Name + role */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 16 }}>
+            <span style={{ fontSize: 22, color: '#94a3b8', fontFamily: 'Arial, sans-serif', fontWeight: 400 }}>
+              Santrupta Mishra · Director, Global Consulting · Melbourne
+            </span>
+          </div>
+
+          {/* Wordmark */}
+          <div
             style={{
-              fontSize: 62,
-              fontWeight: 900,
+              display: 'flex',
+              alignItems: 'baseline',
+              marginTop: 20,
               fontFamily: 'Arial Black, Impact, sans-serif',
-              color: '#ffffff',
-              lineHeight: 1.15,
+              fontWeight: 900,
+              fontStyle: 'italic',
+              fontSize: 32,
+              letterSpacing: -1,
             }}
           >
-            Built by a dad.
-          </span>
-          <span
-            style={{
-              fontSize: 62,
-              fontWeight: 900,
-              fontFamily: 'Arial Black, Impact, sans-serif',
-              color: '#ffffff',
-              lineHeight: 1.15,
-            }}
-          >
-            For every parent.
-          </span>
-        </div>
-
-        {/* Name + role */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 4,
-            marginBottom: 32,
-          }}
-        >
-          <span style={{ fontSize: 24, fontWeight: 700, color: '#e2e8f0', fontFamily: 'Arial, sans-serif' }}>
-            Santrupta Mishra
-          </span>
-          <span style={{ fontSize: 18, color: '#64748b', fontFamily: 'Arial, sans-serif' }}>
-            Director, Global Consulting · Melbourne
-          </span>
-        </div>
-
-        {/* SelectEd wordmark */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'baseline',
-            fontFamily: 'Arial Black, Impact, sans-serif',
-            fontWeight: 900,
-            fontStyle: 'italic',
-            fontSize: 36,
-            letterSpacing: -1,
-          }}
-        >
-          <span style={{ color: '#00e5ff' }}>Select</span>
-          <span style={{ color: '#ff44aa' }}>Ed</span>
+            <span style={{ color: '#00e5ff' }}>Select</span>
+            <span style={{ color: '#ff44aa' }}>Ed</span>
+          </div>
         </div>
       </div>
     ),

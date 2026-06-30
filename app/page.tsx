@@ -534,52 +534,147 @@ export default function Home() {
 
   if (!splashDone) {
     return (
-      <div
-        className="relative h-[100dvh] flex flex-col items-center justify-center gap-6 sm:gap-8 overflow-hidden"
-        style={{ backgroundColor: "#0a0b1a" }}
-      >
-        {/* background glow blobs */}
-        <div className="absolute w-48 h-48 sm:w-96 sm:h-96 rounded-full opacity-10 blur-3xl pointer-events-none" style={{ background: "#7c3aed", top: "10%", left: "10%" }} />
-        <div className="absolute w-40 h-40 sm:w-80 sm:h-80 rounded-full opacity-10 blur-3xl pointer-events-none" style={{ background: "#0ea5e9", bottom: "15%", right: "12%" }} />
+      <div className="overflow-y-auto" style={{ backgroundColor: "#0a0b1a", color: "#f1f5f9" }}>
 
-        <Logo size={320} style={{ width: "min(70vw, 320px)", height: "auto" }} />
+        {/* ── HERO ── */}
+        <div className="relative h-[100dvh] flex flex-col items-center justify-center gap-6 sm:gap-8 overflow-hidden">
+          <div className="absolute w-48 h-48 sm:w-96 sm:h-96 rounded-full opacity-10 blur-3xl pointer-events-none" style={{ background: "#7c3aed", top: "10%", left: "10%" }} />
+          <div className="absolute w-40 h-40 sm:w-80 sm:h-80 rounded-full opacity-10 blur-3xl pointer-events-none" style={{ background: "#0ea5e9", bottom: "15%", right: "12%" }} />
 
-        <div className="flex flex-col items-center gap-4">
+          <Logo size={320} style={{ width: "min(70vw, 320px)", height: "auto" }} />
+
+          <div className="flex flex-col items-center gap-4 relative z-10">
+            <button
+              onClick={() => setSplashDone(true)}
+              className="px-10 py-4 rounded-full text-white font-bold text-xl tracking-wide transition-all hover:scale-105 active:scale-95 shadow-2xl"
+              style={{
+                background: "linear-gradient(135deg, #00e5ff 0%, #7c3aed 50%, #ff44aa 100%)",
+                boxShadow: "0 0 32px #7c3aed88",
+              }}
+            >
+              Start Learning →
+            </button>
+            <p className="text-sm" style={{ color: "#4a5568" }}>
+              AI-powered prep for AMC · Maths Olympiad · ACER · ICAS · ATAR · NAPLAN
+            </p>
+          </div>
+        </div>
+
+        {/* ── FEATURES ── */}
+        <div className="max-w-4xl mx-auto px-6 pt-16 pb-12">
+          <p className="text-xs font-semibold tracking-widest text-indigo-400 uppercase text-center mb-2">How it works</p>
+          <h2 className="text-2xl sm:text-3xl font-black text-white text-center mb-2" style={{ fontFamily: '"Arial Black", Impact, system-ui' }}>Three ways to prepare</h2>
+          <p className="text-slate-400 text-sm text-center mb-10">Pick the mode that fits how you want to study today.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {([
+              {
+                icon: "💬",
+                title: "Chat",
+                badge: "Socratic tutor",
+                desc: "Ask anything. Your AI tutor guides you step-by-step with questions — never just handing you the answer.",
+                color: "#818cf8",
+              },
+              {
+                icon: "📝",
+                title: "Practice",
+                badge: "Targeted problems",
+                desc: "Tackle exam-style problems with up to 5 guided attempts before the full solution is revealed.",
+                color: "#fbbf24",
+              },
+              {
+                icon: "⏱️",
+                title: "Exam",
+                badge: "Timed mock tests",
+                desc: "Sit a full timed exam, get graded instantly, then review every mistake with an AI walkthrough.",
+                color: "#34d399",
+              },
+            ] as const).map(({ icon, title, badge, desc, color }) => (
+              <div
+                key={title}
+                className="rounded-2xl border border-white/10 p-6 flex flex-col gap-3"
+                style={{ background: "rgba(255,255,255,0.04)" }}
+              >
+                <span className="text-3xl">{icon}</span>
+                <div>
+                  <p className="font-black text-white text-lg" style={{ fontFamily: '"Arial Black", Impact, system-ui' }}>{title}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wider mt-0.5" style={{ color }}>{badge}</p>
+                </div>
+                <p className="text-slate-400 text-sm leading-relaxed flex-1">{desc}</p>
+                <button
+                  onClick={() => setSplashDone(true)}
+                  className="text-xs font-semibold transition-colors text-left"
+                  style={{ color }}
+                >
+                  Try it →
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── EXAMS ── */}
+        <div className="max-w-4xl mx-auto px-6 pb-12">
+          <p className="text-xs font-semibold tracking-widest text-indigo-400 uppercase text-center mb-2">Coverage</p>
+          <h2 className="text-2xl sm:text-3xl font-black text-white text-center mb-2" style={{ fontFamily: '"Arial Black", Impact, system-ui' }}>6 Australian exams, one place</h2>
+          <p className="text-slate-400 text-sm text-center mb-10">Questions, difficulty, and topics calibrated for each exam and year level.</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            {([
+              { short: "AMC", name: "Australian Mathematics Competition", years: "Year 3 – 12", color: "#00e5ff" },
+              { short: "Olympiad", name: "Maths Olympiad", years: "Year 4 – 10", color: "#a78bfa" },
+              { short: "ACER", name: "ACER Selective", years: "Year 3 – 9", color: "#ff44aa" },
+              { short: "ICAS", name: "ICAS", years: "Year 2 – 12", color: "#34d399" },
+              { short: "ATAR", name: "ATAR", years: "Year 11 – 12", color: "#fbbf24" },
+              { short: "NAPLAN", name: "NAPLAN", years: "Year 3, 5, 7, 9", color: "#f97316" },
+            ] as const).map(({ short, name, years, color }) => (
+              <div
+                key={short}
+                className="rounded-2xl border border-white/10 p-5 flex flex-col gap-1.5"
+                style={{ background: "rgba(255,255,255,0.04)" }}
+              >
+                <span className="font-black text-xl" style={{ color, fontFamily: '"Arial Black", Impact, system-ui' }}>{short}</span>
+                <span className="text-white text-sm font-semibold leading-snug">{name}</span>
+                <span className="text-slate-500 text-xs">{years}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── TRUST STRIP ── */}
+        <div className="max-w-4xl mx-auto px-6 pb-16">
+          <div
+            className="rounded-2xl border border-white/10 p-8 grid grid-cols-1 sm:grid-cols-3 gap-6"
+            style={{ background: "rgba(255,255,255,0.03)" }}
+          >
+            {([
+              { icon: "🚀", label: "No account required", sub: "Guest mode, zero friction — just open and start." },
+              { icon: "💸", label: "Free to use", sub: "No credit card, no paywall, no premium tier." },
+              { icon: "🤖", label: "Powered by Claude AI", sub: "Anthropic's latest model as your personal tutor." },
+            ] as const).map(({ icon, label, sub }) => (
+              <div key={label} className="flex flex-col items-center gap-2 text-center">
+                <span className="text-3xl">{icon}</span>
+                <p className="text-white font-bold text-sm">{label}</p>
+                <p className="text-slate-500 text-xs leading-relaxed">{sub}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── FOOTER ── */}
+        <div className="pb-12 flex flex-col items-center gap-4">
           <button
             onClick={() => setSplashDone(true)}
-            className="px-10 py-4 rounded-full text-white font-bold text-xl tracking-wide transition-all hover:scale-105 active:scale-95 shadow-2xl"
-            style={{
-              background: "linear-gradient(135deg, #00e5ff 0%, #7c3aed 50%, #ff44aa 100%)",
-              boxShadow: "0 0 32px #7c3aed88",
-            }}
+            className="px-8 py-3 rounded-full text-white font-bold text-base tracking-wide transition-all hover:scale-105 active:scale-95"
+            style={{ background: "linear-gradient(135deg, #00e5ff 0%, #7c3aed 50%, #ff44aa 100%)" }}
           >
             Start Learning →
           </button>
-          <p className="text-sm" style={{ color: "#4a5568" }}>
-            AI-powered prep for AMC · Maths Olympiad · ACER · ICAS · ATAR · NAPLAN
-          </p>
           <div className="flex items-center gap-4">
-            <a
-              href="/about"
-              className="text-xs transition-colors"
-              style={{ color: "#4a5568" }}
-              onMouseEnter={e => (e.currentTarget.style.color = "#818cf8")}
-              onMouseLeave={e => (e.currentTarget.style.color = "#4a5568")}
-            >
-              About the founder
-            </a>
+            <a href="/about" className="text-xs transition-colors" style={{ color: "#4a5568" }} onMouseEnter={e => (e.currentTarget.style.color = "#818cf8")} onMouseLeave={e => (e.currentTarget.style.color = "#4a5568")}>About the founder</a>
             <span style={{ color: "#2d3748" }}>·</span>
-            <a
-              href="/privacy"
-              className="text-xs transition-colors"
-              style={{ color: "#4a5568" }}
-              onMouseEnter={e => (e.currentTarget.style.color = "#818cf8")}
-              onMouseLeave={e => (e.currentTarget.style.color = "#4a5568")}
-            >
-              Privacy Policy
-            </a>
+            <a href="/privacy" className="text-xs transition-colors" style={{ color: "#4a5568" }} onMouseEnter={e => (e.currentTarget.style.color = "#818cf8")} onMouseLeave={e => (e.currentTarget.style.color = "#4a5568")}>Privacy Policy</a>
           </div>
         </div>
+
       </div>
     )
   }
