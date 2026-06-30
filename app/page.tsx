@@ -337,7 +337,6 @@ function Logo({ size = 56, style: extraStyle }: { size?: number; style?: React.C
 export default function Home() {
   const [splashDone, setSplashDone] = useState(false)
   const [showBackToTop, setShowBackToTop] = useState(false)
-  const splashScrollRef = useRef<HTMLDivElement>(null)
   const [isDark, setIsDark] = useState(false)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -377,6 +376,14 @@ export default function Home() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations))
     }
   }, [conversations, isSignedIn])
+
+  // Back-to-top visibility — window scrolls, not the inner div
+  useEffect(() => {
+    if (splashDone) { setShowBackToTop(false); return }
+    const onScroll = () => setShowBackToTop(window.scrollY > window.innerHeight * 0.8)
+    window.addEventListener("scroll", onScroll, { passive: true })
+    return () => window.removeEventListener("scroll", onScroll)
+  }, [splashDone])
 
   useEffect(() => {
     // Track the sm breakpoint (640px) so the sidebar follows orientation changes.
@@ -546,15 +553,7 @@ export default function Home() {
 
   if (!splashDone) {
     return (
-      <div
-        ref={splashScrollRef}
-        className="overflow-y-auto"
-        style={{ backgroundColor: "#0a0b1a", color: "#f1f5f9" }}
-        onScroll={e => {
-          const el = e.currentTarget
-          setShowBackToTop(el.scrollTop > el.clientHeight * 0.8)
-        }}
-      >
+      <div className="overflow-y-auto" style={{ backgroundColor: "#0a0b1a", color: "#f1f5f9" }}>
 
         {/* ── HERO ── */}
         <div className="relative h-[100dvh] flex flex-col items-center justify-center gap-6 sm:gap-8 overflow-hidden">
@@ -726,7 +725,7 @@ export default function Home() {
         {/* Back to top */}
         {showBackToTop && (
           <button
-            onClick={() => splashScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" })}
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
             className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-full text-white text-xs font-semibold shadow-lg transition-all hover:scale-105 active:scale-95"
             style={{ background: "linear-gradient(135deg, #7c3aed, #4338ca)", boxShadow: "0 0 20px #7c3aed66" }}
             aria-label="Back to top"
