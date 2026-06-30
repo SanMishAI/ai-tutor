@@ -5,6 +5,19 @@ import type { Metadata } from "next"
 export const metadata: Metadata = {
   title: "About — SelectEd",
   description: "Meet San Mishra, the Melbourne dad who built SelectEd because he couldn't find the right exam prep tool for his son.",
+  openGraph: {
+    title: "Built by a dad. For every parent. — SelectEd",
+    description: "Meet Santrupta Mishra, the Melbourne dad who built SelectEd because he couldn't find the right exam prep tool for his son.",
+    url: "https://selected-ed.vercel.app/about",
+    siteName: "SelectEd",
+    type: "website",
+    locale: "en_AU",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Built by a dad. For every parent. — SelectEd",
+    description: "Meet Santrupta Mishra, the Melbourne dad who built SelectEd because he couldn't find the right exam prep tool for his son.",
+  },
 }
 
 export default function AboutPage() {
