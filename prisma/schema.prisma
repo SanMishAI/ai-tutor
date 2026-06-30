@@ -54,3 +54,17 @@ model Feedback {
   message   String?
   createdAt DateTime @default(now())
 }
+
+model UserStreak {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  displayName       String   @default("Learner")
+  currentStreak     Int      @default(0)
+  longestStreak     Int      @default(0)
+  lastActivityDate  String?
+  freezesAvailable  Int      @default(0)
+  showOnLeaderboard Boolean  @default(true)
+  updatedAt         DateTime @updatedAt
+
+  @@index([currentStreak])
+}

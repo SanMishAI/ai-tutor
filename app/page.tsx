@@ -11,6 +11,7 @@ import ExamView from "./components/ExamView"
 import BreakZone from "./components/BreakZone"
 import FeedbackForm from "./components/FeedbackForm"
 import WelcomeScreen from "./components/WelcomeScreen"
+import StreakBadge from "./components/StreakBadge"
 import type { Message, Conversation } from "./types"
 
 const SUBJECTS = [
@@ -774,8 +775,9 @@ export default function Home() {
           </button>
         </div>
         <div className="flex items-center gap-3">
+          <StreakBadge />
           <AuthButton />
-          <Logo size={56} />
+          <img src="/selected-logo.svg" alt="SelectEd" style={{ width: 44, height: 44, objectFit: "contain" }} />
         </div>
       </header>
 

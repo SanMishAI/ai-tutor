@@ -1,6 +1,7 @@
-import { auth } from "@clerk/nextjs/server"
+import { auth, currentUser } from "@clerk/nextjs/server"
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
+import { upsertStreak } from "@/lib/streak"
 
 export async function GET() {
   const { userId } = await auth()
@@ -29,5 +30,12 @@ export async function POST(req: Request) {
       wrongAnswers: body.wrongAnswers,
     },
   })
+
+  // Update streak — fire-and-forget, never fails the response
+  currentUser().then(u => {
+    const name = u?.fullName ?? u?.username ?? u?.primaryEmailAddress?.emailAddress ?? "Learner"
+    return upsertStreak(userId, name)
+  }).catch(() => {})
+
   return NextResponse.json(result)
 }
