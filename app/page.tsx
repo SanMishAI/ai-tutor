@@ -541,6 +541,17 @@ export default function Home() {
           <div className="absolute w-48 h-48 sm:w-96 sm:h-96 rounded-full opacity-10 blur-3xl pointer-events-none" style={{ background: "#7c3aed", top: "10%", left: "10%" }} />
           <div className="absolute w-40 h-40 sm:w-80 sm:h-80 rounded-full opacity-10 blur-3xl pointer-events-none" style={{ background: "#0ea5e9", bottom: "15%", right: "12%" }} />
 
+          {/* Nav bar */}
+          <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-5 sm:px-8 py-4 z-10">
+            <Wordmark />
+            <button
+              onClick={() => setSplashDone(true)}
+              className="text-sm font-semibold px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+            >
+              Open app →
+            </button>
+          </div>
+
           <Logo size={320} style={{ width: "min(70vw, 320px)", height: "auto" }} />
 
           <div className="flex flex-col items-center gap-4 relative z-10">
