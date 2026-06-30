@@ -336,6 +336,8 @@ function Logo({ size = 56, style: extraStyle }: { size?: number; style?: React.C
 
 export default function Home() {
   const [splashDone, setSplashDone] = useState(false)
+  const [showBackToTop, setShowBackToTop] = useState(false)
+  const splashScrollRef = useRef<HTMLDivElement>(null)
   const [isDark, setIsDark] = useState(false)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -544,7 +546,15 @@ export default function Home() {
 
   if (!splashDone) {
     return (
-      <div className="overflow-y-auto" style={{ backgroundColor: "#0a0b1a", color: "#f1f5f9" }}>
+      <div
+        ref={splashScrollRef}
+        className="overflow-y-auto"
+        style={{ backgroundColor: "#0a0b1a", color: "#f1f5f9" }}
+        onScroll={e => {
+          const el = e.currentTarget
+          setShowBackToTop(el.scrollTop > el.clientHeight * 0.8)
+        }}
+      >
 
         {/* ── HERO ── */}
         <div className="relative h-[100dvh] flex flex-col items-center justify-center gap-6 sm:gap-8 overflow-hidden">
@@ -712,6 +722,21 @@ export default function Home() {
             <a href="/privacy" className="text-xs transition-colors" style={{ color: "#4a5568" }} onMouseEnter={e => (e.currentTarget.style.color = "#818cf8")} onMouseLeave={e => (e.currentTarget.style.color = "#4a5568")}>Privacy Policy</a>
           </div>
         </div>
+
+        {/* Back to top */}
+        {showBackToTop && (
+          <button
+            onClick={() => splashScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" })}
+            className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2.5 rounded-full text-white text-xs font-semibold shadow-lg transition-all hover:scale-105 active:scale-95"
+            style={{ background: "linear-gradient(135deg, #7c3aed, #4338ca)", boxShadow: "0 0 20px #7c3aed66" }}
+            aria-label="Back to top"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path d="M2 10L7 4L12 10" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            Back to top
+          </button>
+        )}
 
       </div>
     )
