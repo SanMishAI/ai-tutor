@@ -268,11 +268,21 @@ Home (page.tsx)
 
 ## 6. Feature Breakdown
 
-### 6.1 Splash Screen
+### 6.1 Splash Screen / Landing Page
 
 Shown on first load (`splashDone` state starts `false`). Clicking the **SelectEd** wordmark in the header at any time resets `splashDone` to `false`, returning here.
 
-Design: full-screen dark (`#0a0b1a`), the illustrated `<Logo />` centered (responsive: `min(70vw, 320px)` wide with `height: auto`), purple/cyan neon glow blobs (halved on mobile via `sm:` breakpoint), gradient button, subtle "About the founder" link at the bottom.
+The page is a scrollable landing page (`overflow-y-auto`). Above the fold it behaves as a full-screen hero; below are marketing sections.
+
+**Hero** (`h-[100dvh]`) — illustrated `<Logo />` centered (responsive: `min(70vw, 320px)` wide), purple/cyan neon glow blobs (halved on mobile), gradient "Start Learning →" button, exam list tagline.
+
+**Features section** — three cards (Chat / Practice / Exam), each with an icon, colour-coded badge, description, and "Try it →" CTA that calls `setSplashDone(true)`.
+
+**Exams section** — six cards, one per supported exam (AMC, Olympiad, ACER, ICAS, ATAR, NAPLAN), each showing the short name in brand colour, full name, and year level range.
+
+**Trust strip** — single card with three columns: "No account required", "Free to use", "Powered by Claude AI".
+
+**Footer** — second "Start Learning →" button (so users don't scroll back up) above About + Privacy links.
 
 ---
 
@@ -849,14 +859,19 @@ The legacy `app/favicon.ico` (Next.js scaffold default) remains as a fallback fo
 
 ### Open Graph / social preview
 
-`app/opengraph-image.tsx` generates a 1200×630 PNG at build time. Design:
+**Root (`app/opengraph-image.tsx`)** — 1200×630 PNG, used for `/` and all routes without their own image:
 - Background: `#0a0b1a` with purple radial glow (top-left) and cyan radial glow (bottom-right)
 - Wordmark: "Select" in `#00e5ff`, "Ed" in `#ff44aa`, 130px italic bold
 - Tagline: coloured "Sharpen · Sit · Succeed." row
-- Subtitle: slate-400 description
-- Badge row: AMC · Maths Olympiad · ACER · ICAS · ATAR · NAPLAN
+- Subtitle and badge row: AMC · Maths Olympiad · ACER · ICAS · ATAR · NAPLAN
 
-`app/layout.tsx` metadata includes `metadataBase`, `openGraph`, and `twitter: { card: "summary_large_image" }` so all major platforms (WhatsApp, iMessage, Twitter/X, Slack, LinkedIn) render a rich preview card.
+**About (`app/about/opengraph-image.tsx`)** — 1200×630 PNG with full-bleed founder photo:
+- San's photo (`public/san.jpeg`) fills the entire card via `objectFit: cover`, `objectPosition: center top`
+- Dark gradient overlay on the bottom 68% keeps text legible
+- Headline "Built by a dad. / For every parent." in 64px white bold anchored bottom-left
+- Name/role line and SelectEd wordmark below
+
+`app/layout.tsx` metadata includes `metadataBase`, `openGraph`, and `twitter: { card: "summary_large_image" }` so all major platforms (WhatsApp, iMessage, Twitter/X, Slack, LinkedIn) render rich preview cards. The About page has its own `openGraph`/`twitter` metadata with a founder-specific title and description.
 
 ---
 
@@ -914,8 +929,9 @@ Design: always dark (`#0a0b1a`), glow blobs, `max-w-2xl`, white headings, `slate
 | **v0.10.0** | June 2026 | Rich math and image support — `rehype-raw` added so inline SVG passes through the ReactMarkdown pipeline. All AI prompts (chat, practice, exam generate/grade/review) updated with detailed LaTeX formatting rules (fractions, roots, Greek letters, vectors, chemistry, physics units, integrals) and SVG diagram generation guidelines. Geometry exam questions now include inline SVG diagrams. Answer options render through the full KaTeX+SVG pipeline. Answers stored as letter-only (A/B/C/D/E). `stripSvg()` used before sending to grade/review APIs to keep context lean. `max_tokens` raised to 8000 for generate and review routes, 2048 for chat |
 | **v0.11.0** | June 2026 | Deployment protection fix — Vercel SSO protection (`ssoProtection: all_except_custom_domains`) was inadvertently blocking all public access to the app. Disabled via Vercel API (`PATCH /v9/projects/{id}`). App is now publicly accessible without a Vercel account |
 | **v0.12.0** | June 2026 | Share-readiness pass — (1) In-memory rate limiting added to all four AI API routes (`lib/ratelimit.ts`): 30 req/min for chat, 3–5 req/10 min for exam routes. (2) Branded favicon via `app/icon.tsx` (32×32 PNG, "SE" in cyan/pink). (3) Social preview card via `app/opengraph-image.tsx` (1200×630 PNG with full brand treatment). (4) `layout.tsx` metadata updated with `metadataBase`, `openGraph`, and `twitter` fields. (5) Privacy policy page at `/privacy` covering Australian Privacy Act, children's privacy, third-party services, and data retention. Privacy Policy link added to splash screen footer |
+| **v0.13.0** | June 2026 | Landing page expansion and About OG image — Splash screen converted to scrollable landing page with Features (Chat/Practice/Exam cards), Exams (6 branded cards with year level ranges), Trust strip (No account / Free / Claude AI), and footer CTA. Hero remains full-screen above the fold. About OG image redesigned: San's photo fills the full 1200×630 card (full-bleed, objectFit cover), dark gradient overlay on bottom 68%, founder headline and wordmark anchored bottom-left |
 
 ---
 
-*Document last updated: 30 June 2026. Updated alongside the codebase whenever routes, components, or UX decisions change.*
+*Document last updated: 30 June 2026 (v0.13). Updated alongside the codebase whenever routes, components, or UX decisions change.*
 *Author: Santrupta Mishra (San) — Founder, SelectEd*
