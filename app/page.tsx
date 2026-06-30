@@ -13,7 +13,23 @@ import FeedbackForm from "./components/FeedbackForm"
 import WelcomeScreen from "./components/WelcomeScreen"
 import StreakBadge from "./components/StreakBadge"
 import ArcadeMode from "./components/arcade/ArcadeMode"
+import ChildLoginScreen from "./components/ChildLoginScreen"
+import UpgradeModal from "./components/UpgradeModal"
 import type { Message, Conversation } from "./types"
+
+type ChildSession = { token: string; id: string; name: string; avatarEmoji: string }
+const CHILD_SESSION_KEY = "selected_child_session"
+
+function loadChildSession(): ChildSession | null {
+  if (typeof window === "undefined") return null
+  try { return JSON.parse(localStorage.getItem(CHILD_SESSION_KEY) ?? "null") } catch { return null }
+}
+function saveChildSession(s: ChildSession) {
+  localStorage.setItem(CHILD_SESSION_KEY, JSON.stringify(s))
+}
+function clearChildSession() {
+  localStorage.removeItem(CHILD_SESSION_KEY)
+}
 
 const SUBJECTS = [
   "Australian Mathematics Competition (AMC)",
@@ -376,6 +392,76 @@ export default function Home() {
   const inputRef = useRef<HTMLInputElement>(null)
   const { isSignedIn } = useUser()
 
+  // Child session
+  const [childSession, setChildSession] = useState<ChildSession | null>(null)
+  const [showChildLogin, setShowChildLogin] = useState(false)
+
+  // Usage tracking (child sessions only)
+  const [usageCount, setUsageCount] = useState(0)
+  const [usageLimit, setUsageLimit] = useState<number | null>(20)
+  const [isPremium, setIsPremium] = useState(false)
+  const [upgradeModal, setUpgradeModal] = useState<{ reason: "limit" | "feature"; featureName?: string } | null>(null)
+
+  useEffect(() => {
+    const s = loadChildSession()
+    if (s) setChildSession(s)
+  }, [])
+
+  // Store parentId in localStorage when a parent is signed in (so children can log in on this device)
+  const { user } = useUser()
+  useEffect(() => {
+    if (user?.id) localStorage.setItem("selected_parent_id", user.id)
+  }, [user?.id])
+
+  useEffect(() => {
+    if (!childSession) return
+    fetch("/api/usage", { headers: { "x-child-token": childSession.token } })
+      .then(r => r.json())
+      .then(d => { setUsageCount(d.count ?? 0); setUsageLimit(d.limit ?? null); setIsPremium(d.isPremium ?? false) })
+      .catch(() => {})
+  }, [childSession])
+
+  function handleChildLogin(token: string, child: { id: string; name: string; avatarEmoji: string }) {
+    const session = { token, ...child }
+    saveChildSession(session)
+    setChildSession(session)
+    setShowChildLogin(false)
+    setSplashDone(true)
+    setIntroSeen(true)
+  }
+
+  function handleChildLogout() {
+    clearChildSession()
+    setChildSession(null)
+    setSplashDone(false)
+    setIntroSeen(false)
+  }
+
+  async function trackUsage(): Promise<boolean> {
+    if (!childSession) return true
+    if (usageLimit !== null && usageCount >= usageLimit) {
+      setUpgradeModal({ reason: "limit" })
+      return false
+    }
+    try {
+      const res = await fetch("/api/usage", {
+        method: "POST",
+        headers: { "x-child-token": childSession.token },
+      })
+      const d = await res.json()
+      setUsageCount(d.count ?? usageCount + 1)
+      if (d.exceeded) { setUpgradeModal({ reason: "limit" }); return false }
+    } catch { /* non-blocking */ }
+    return true
+  }
+
+  function checkPremiumFeature(featureName: string): boolean {
+    if (isPremium) return true
+    if (!childSession) return true
+    setUpgradeModal({ reason: "feature", featureName })
+    return false
+  }
+
   const activeConv = conversations.find(c => c.id === activeId)
   const messages = activeConv?.messages ?? []
 
@@ -515,6 +601,8 @@ export default function Home() {
 
   async function sendMessage() {
     if (!input.trim() || loading) return
+    const allowed = await trackUsage()
+    if (!allowed) return
 
     const userMessage: Message = { role: "user", content: input }
     const updated = [...messages, userMessage]
@@ -534,6 +622,8 @@ export default function Home() {
 
   async function getPracticeProblem() {
     if (loading) return
+    const allowed = await trackUsage()
+    if (!allowed) return
     setAttemptCount(0)
     setPracticeActive(true)
 
@@ -568,12 +658,25 @@ export default function Home() {
   }
 
   function handleModeChange(newMode: "chat" | "practice" | "exam" | "adventure") {
+    if ((newMode === "exam" || newMode === "adventure") && !checkPremiumFeature(newMode === "exam" ? "Exam Mode" : "Adventure Mode")) return
     setMode(newMode)
     setAttemptCount(0)
     setPracticeActive(false)
   }
 
   const showRevealButton = mode === "practice" && practiceActive && attemptCount >= MAX_ATTEMPTS
+
+  // Child login screen
+  if (showChildLogin && !childSession) {
+    const storedParentId = typeof window !== "undefined" ? localStorage.getItem("selected_parent_id") ?? "" : ""
+    return (
+      <ChildLoginScreen
+        parentId={storedParentId}
+        onLogin={handleChildLogin}
+        onBack={() => setShowChildLogin(false)}
+      />
+    )
+  }
 
   if (splashDone && !introSeen) {
     return (
@@ -602,8 +705,14 @@ export default function Home() {
             <div className="hidden sm:flex items-center gap-6 text-sm font-medium" style={{ color: "#64748b" }}>
               <a href="/about" className="hover:text-slate-900 transition-colors">Our story</a>
               <a href="/pricing" className="hover:text-slate-900 transition-colors">Pricing</a>
+              {isSignedIn && <a href="/parent" className="hover:text-slate-900 transition-colors">Parent dashboard</a>}
             </div>
             <div className="flex items-center gap-2 sm:gap-3">
+              <button onClick={() => setShowChildLogin(true)}
+                className="hidden sm:block text-sm font-semibold px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
+                style={{ color: "#475569" }}>
+                I&apos;m a student
+              </button>
               {isSignedIn ? (
                 <>
                   <UserButton />
@@ -654,12 +763,12 @@ export default function Home() {
               <button onClick={() => setSplashDone(true)}
                 className="px-8 py-4 rounded-xl font-bold text-base transition-all hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] shadow-lg"
                 style={{ background: "#000936", color: "#FDC800" }}>
-                Start free today →
+                Create parent account →
               </button>
-              <button onClick={() => document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" })}
+              <button onClick={() => setShowChildLogin(true)}
                 className="px-8 py-4 rounded-xl font-semibold text-base transition-all hover:bg-slate-50"
                 style={{ border: "2px solid #CBD5E1", color: "#475569" }}>
-                See how it works ↓
+                I&apos;m a student →
               </button>
             </div>
             <div className="flex flex-wrap gap-5 text-sm" style={{ color: "#64748b" }}>
@@ -1066,25 +1175,54 @@ export default function Home() {
 
   return (
     <div className="h-[100dvh] flex flex-col" style={{ background: "#f8fafc" }}>
+      {upgradeModal && (
+        <UpgradeModal reason={upgradeModal.reason} featureName={upgradeModal.featureName} onClose={() => setUpgradeModal(null)} />
+      )}
 
       {/* Header */}
       <header className="bg-white border-b border-slate-100 shadow-sm px-4 py-2.5 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setSidebarOpen(o => !o)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors text-lg"
-            title="Toggle sidebar"
-          >
-            ☰
-          </button>
-          <button onClick={() => setSplashDone(false)} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+          {!childSession && (
+            <button
+              onClick={() => setSidebarOpen(o => !o)}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors text-lg"
+              title="Toggle sidebar"
+            >
+              ☰
+            </button>
+          )}
+          <button onClick={() => { if (!childSession) setSplashDone(false) }} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
             <img src="/selected-logo.svg" alt="SelectEd" style={{ width: 30, height: 30, objectFit: "contain" }} />
             <WordmarkLight small />
           </button>
         </div>
         <div className="flex items-center gap-3">
-          <StreakBadge />
-          <AuthButton />
+          {childSession ? (
+            <>
+              {usageLimit !== null && (
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
+                  style={{
+                    background: usageCount >= usageLimit ? "#fef2f2" : "#f1f5f9",
+                    color: usageCount >= usageLimit ? "#b91c1c" : "#64748b",
+                  }}>
+                  {usageCount}/{usageLimit} today
+                </span>
+              )}
+              <span className="text-sm font-semibold" style={{ color: "#0f172a" }}>
+                {childSession.avatarEmoji} {childSession.name}
+              </span>
+              <button onClick={handleChildLogout}
+                className="text-xs px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
+                style={{ color: "#94a3b8" }}>
+                Exit
+              </button>
+            </>
+          ) : (
+            <>
+              <StreakBadge />
+              <AuthButton />
+            </>
+          )}
         </div>
       </header>
 
@@ -1099,15 +1237,17 @@ export default function Home() {
           />
         )}
 
-        <Sidebar
-          open={sidebarOpen}
-          conversations={conversations}
-          activeId={activeId}
-          onSelect={selectConversation}
-          onNew={startNewChat}
-          onDelete={deleteConversation}
-          onClose={() => setSidebarOpen(false)}
-        />
+        {!childSession && (
+          <Sidebar
+            open={sidebarOpen}
+            conversations={conversations}
+            activeId={activeId}
+            onSelect={selectConversation}
+            onNew={startNewChat}
+            onDelete={deleteConversation}
+            onClose={() => setSidebarOpen(false)}
+          />
+        )}
 
         {/* Main */}
         <main className="flex flex-1 flex-col overflow-hidden p-2 sm:p-4 gap-3">
