@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useUser, UserButton } from "@clerk/nextjs"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
@@ -13,6 +13,14 @@ const FREE_LIMIT = 1
 const PREMIUM_LIMIT = 5
 
 export default function ParentPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center" style={{ background: "#f8fafc" }}><p style={{ color: "#94a3b8" }}>Loading…</p></div>}>
+      <ParentDashboard />
+    </Suspense>
+  )
+}
+
+function ParentDashboard() {
   const { user, isLoaded, isSignedIn } = useUser()
   const router = useRouter()
   const searchParams = useSearchParams()
