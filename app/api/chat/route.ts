@@ -5,7 +5,7 @@ const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 })
 
-const checkRateLimit = createRateLimiter(30, 60_000) // 30 per minute
+const checkRateLimit = createRateLimiter(30, 60, "chat") // 30 per 60 s
 
 const MATH_FORMAT_RULES = `
 FORMATTING RULES for all responses:
@@ -69,16 +69,48 @@ type Message = {
   content: string
 }
 
+// Hard caps to protect against token-bomb DoS attacks
+const MAX_MESSAGES = 20      // only last 20 messages sent to Claude
+const MAX_MSG_CHARS = 8_000  // per-message character ceiling
+
 export async function POST(request: Request) {
-  if (!checkRateLimit(getIp(request))) {
-    return Response.json({ error: 'Too many requests. Please slow down.' }, { status: 429 })
+  if (!await checkRateLimit(getIp(request))) {
+    return Response.json({ error: 'Too many requests. Please slow down.' }, { status: 429, headers: { "Retry-After": "60" } })
+  }
+
+  let body: unknown
+  try { body = await request.json() } catch {
+    return Response.json({ error: "Invalid JSON" }, { status: 400 })
+  }
+
+  const { messages, subject, yearLevel, mode } = body as Record<string, unknown>
+
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return Response.json({ error: "messages must be a non-empty array" }, { status: 400 })
+  }
+
+  // Trim conversation history and truncate oversized messages
+  const safeMessages: Message[] = messages
+    .slice(-MAX_MESSAGES)
+    .map((m: unknown): Message => {
+      const msg = m as Record<string, unknown>
+      const role: Message["role"] = msg.role === "assistant" ? "assistant" : "user"
+      const content = typeof msg.content === "string"
+        ? msg.content.slice(0, MAX_MSG_CHARS)
+        : ""
+      return { role, content }
+    })
+    .filter((m): m is Message => m.content.length > 0)
+
+  if (safeMessages.length === 0) {
+    return Response.json({ error: "No valid messages" }, { status: 400 })
   }
 
   try {
-    const { messages, subject, yearLevel, mode } = await request.json()
-
     const base = mode === "practice" ? PRACTICE_SYSTEM_PROMPT : SYSTEM_PROMPT
-    const context = [subject, yearLevel].filter(Boolean).join(", ")
+    const subjectStr = typeof subject === "string" ? subject.slice(0, 200) : ""
+    const yearStr    = typeof yearLevel === "string" ? yearLevel.slice(0, 50) : ""
+    const context = [subjectStr, yearStr].filter(Boolean).join(", ")
     const systemPrompt = context
       ? `${base}\n\nThe student is preparing for: ${context}`
       : base
@@ -87,7 +119,7 @@ export async function POST(request: Request) {
       model: 'claude-sonnet-4-6',
       max_tokens: 2048,
       system: systemPrompt,
-      messages: messages as Message[],
+      messages: safeMessages,
     })
 
     const reply =

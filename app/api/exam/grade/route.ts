@@ -4,7 +4,10 @@ import { createRateLimiter, getIp } from '@/lib/ratelimit'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-const checkRateLimit = createRateLimiter(5, 10 * 60_000) // 5 per 10 minutes
+const checkRateLimit = createRateLimiter(5, 600, "exam_grade") // 5 per 600 s
+
+const MAX_QUESTIONS = 20
+const MAX_TEXT_CHARS = 5_000
 
 function stripSvg(text: string): string {
   return text.replace(/<svg[\s\S]*?<\/svg>/gi, "[diagram]")
@@ -20,19 +23,30 @@ function extractJson(text: string): unknown {
 }
 
 export async function POST(request: Request) {
-  if (!checkRateLimit(getIp(request))) {
-    return Response.json({ error: 'Too many requests. Please slow down.' }, { status: 429 })
+  if (!await checkRateLimit(getIp(request))) {
+    return Response.json({ error: 'Too many requests. Please slow down.' }, { status: 429, headers: { "Retry-After": "600" } })
+  }
+
+  let body: unknown
+  try { body = await request.json() } catch {
+    return Response.json({ error: "Invalid JSON" }, { status: 400 })
+  }
+  const { subject, questions, answers } = body as Record<string, unknown>
+
+  if (!Array.isArray(questions)) {
+    return Response.json({ error: "questions must be an array" }, { status: 400 })
   }
 
   try {
-    const { subject, questions, answers } = await request.json()
+    const safeQuestions = (questions as ExamQuestion[]).slice(0, MAX_QUESTIONS)
+    const safeAnswers   = answers && typeof answers === "object" ? answers as Record<number, string> : {}
 
-    const questionsWithAnswers = questions.map((q: ExamQuestion) => ({
+    const questionsWithAnswers = safeQuestions.map((q: ExamQuestion) => ({
       id: q.id,
-      text: stripSvg(q.text),
+      text: stripSvg(q.text).slice(0, MAX_TEXT_CHARS),
       type: q.type,
-      options: q.options?.map((o: string) => stripSvg(o)),
-      studentAnswer: answers[q.id] || "No answer provided",
+      options: q.options?.map((o: string) => stripSvg(o).slice(0, MAX_TEXT_CHARS)),
+      studentAnswer: String(safeAnswers[q.id] ?? "No answer provided").slice(0, 500),
     }))
 
     const response = await client.messages.create({

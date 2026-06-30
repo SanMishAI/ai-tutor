@@ -3,7 +3,10 @@ import { createRateLimiter, getIp } from '@/lib/ratelimit'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-const checkRateLimit = createRateLimiter(3, 10 * 60_000) // 3 per 10 minutes
+const checkRateLimit = createRateLimiter(3, 600, "exam_rev") // 3 per 600 s
+
+const MAX_QUESTIONS = 20
+const MAX_TEXT_CHARS = 5_000
 
 function stripSvg(text: string): string {
   return text.replace(/<svg[\s\S]*?<\/svg>/gi, "[diagram]")
@@ -19,17 +22,30 @@ function extractJson(text: string): unknown {
 }
 
 export async function POST(request: Request) {
-  if (!checkRateLimit(getIp(request))) {
-    return Response.json({ error: 'Too many requests. Please slow down.' }, { status: 429 })
+  if (!await checkRateLimit(getIp(request))) {
+    return Response.json({ error: 'Too many requests. Please slow down.' }, { status: 429, headers: { "Retry-After": "600" } })
+  }
+
+  let body: unknown
+  try { body = await request.json() } catch {
+    return Response.json({ error: "Invalid JSON" }, { status: 400 })
+  }
+  const { subject, wrongQuestions } = body as Record<string, unknown>
+
+  if (!Array.isArray(wrongQuestions)) {
+    return Response.json({ error: "wrongQuestions must be an array" }, { status: 400 })
   }
 
   try {
-    const { subject, wrongQuestions } = await request.json()
+    type Q = { id: number; text: string; type: string; options?: string[]; studentAnswer: string; correctAnswer: string }
+    const capped: Q[] = (wrongQuestions as Q[]).slice(0, MAX_QUESTIONS)
 
-    const sanitised = wrongQuestions.map((q: { id: number; text: string; type: string; options?: string[]; studentAnswer: string; correctAnswer: string }) => ({
+    const sanitised = capped.map((q) => ({
       ...q,
-      text: stripSvg(q.text),
-      options: q.options?.map((o: string) => stripSvg(o)),
+      text: stripSvg(q.text).slice(0, MAX_TEXT_CHARS),
+      options: q.options?.map((o: string) => stripSvg(o).slice(0, MAX_TEXT_CHARS)),
+      studentAnswer: String(q.studentAnswer ?? "").slice(0, 500),
+      correctAnswer: String(q.correctAnswer ?? "").slice(0, 500),
     }))
 
     const response = await client.messages.create({

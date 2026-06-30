@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createRateLimiter, getIp } from '@/lib/ratelimit'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-const checkRateLimit = createRateLimiter(10, 60_000) // 10 per minute
+const checkRateLimit = createRateLimiter(10, 60, "trivia") // 10 per 60 s
 
 const CATEGORY_PROMPTS: Record<string, string> = {
   animals:     "amazing animals and nature — weird adaptations, record-holders, surprising facts about pets and wild creatures",
@@ -23,13 +23,20 @@ function extractJson(text: string): unknown {
 }
 
 export async function POST(request: Request) {
-  if (!checkRateLimit(getIp(request))) {
-    return Response.json({ error: 'Too many requests.' }, { status: 429 })
+  if (!await checkRateLimit(getIp(request))) {
+    return Response.json({ error: 'Too many requests.' }, { status: 429, headers: { "Retry-After": "60" } })
   }
 
+  let body: unknown
+  try { body = await request.json() } catch {
+    return Response.json({ error: "Invalid JSON" }, { status: 400 })
+  }
+  const { category } = body as Record<string, unknown>
+
   try {
-    const { category } = await request.json()
-    const topic = CATEGORY_PROMPTS[category as string] ?? CATEGORY_PROMPTS.random
+    // Reject unknown categories — don't let arbitrary strings reach the AI prompt
+    const safeCategory = typeof category === "string" && CATEGORY_PROMPTS[category] ? category : "random"
+    const topic = CATEGORY_PROMPTS[safeCategory]
 
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',

@@ -16,6 +16,8 @@
     "@prisma/client": "^7.8.0",
     "@stripe/stripe-js": "^9.8.0",
     "@tailwindcss/typography": "^0.5.20",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.38.0",
     "@vercel/analytics": "^2.0.1",
     "bcryptjs": "^3.0.3",
     "jose": "^6.2.3",

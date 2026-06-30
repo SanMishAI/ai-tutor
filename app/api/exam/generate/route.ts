@@ -3,7 +3,7 @@ import { createRateLimiter, getIp } from '@/lib/ratelimit'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-const checkRateLimit = createRateLimiter(3, 10 * 60_000) // 3 per 10 minutes
+const checkRateLimit = createRateLimiter(3, 600, "exam_gen") // 3 per 600 s
 
 const RICH_CONTENT_RULES = `
 FORMATTING RULES — apply to every question, option, and explanation:
@@ -67,24 +67,35 @@ function extractJson(text: string): unknown {
 }
 
 export async function POST(request: Request) {
-  if (!checkRateLimit(getIp(request))) {
-    return Response.json({ error: 'Too many requests. Please wait before generating another exam.' }, { status: 429 })
+  if (!await checkRateLimit(getIp(request))) {
+    return Response.json({ error: 'Too many requests. Please wait before generating another exam.' }, { status: 429, headers: { "Retry-After": "600" } })
   }
 
+  let body: unknown
+  try { body = await request.json() } catch {
+    return Response.json({ error: "Invalid JSON" }, { status: 400 })
+  }
+  const { subject, yearLevel } = body as Record<string, unknown>
+
+  if (typeof subject !== "string" || !subject.trim()) {
+    return Response.json({ error: "subject is required" }, { status: 400 })
+  }
+  const safeSubject   = subject.slice(0, 200)
+  const safeYearLevel = typeof yearLevel === "string" ? yearLevel.slice(0, 50) : undefined
+
   try {
-    const { subject, yearLevel } = await request.json()
-    const format = EXAM_FORMATS[subject] ?? "10 open-ended questions appropriate for Australian high school level."
+    const format = EXAM_FORMATS[safeSubject] ?? "10 open-ended questions appropriate for Australian high school level."
 
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
       max_tokens: 8000,
       messages: [{
         role: "user",
-        content: `Generate exactly 10 exam questions for: ${subject}${yearLevel ? ` (${yearLevel})` : ""}
+        content: `Generate exactly 10 exam questions for: ${safeSubject}${safeYearLevel ? ` (${safeYearLevel})` : ""}
 
 Format requirements: ${format}
 
-Difficulty and content must be appropriate for ${yearLevel ?? "the exam level"}.
+Difficulty and content must be appropriate for ${safeYearLevel ?? "the exam level"}.
 
 ${RICH_CONTENT_RULES}
 
