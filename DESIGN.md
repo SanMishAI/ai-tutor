@@ -61,6 +61,8 @@ Users can optionally sign in with Google, Apple, GitHub, email, or phone to sync
 | ICAS | Year 2 – Year 12 |
 | ATAR | Year 11, Year 12 |
 | NAPLAN | Year 3, 5, 7, 9 |
+| Bebras | Year 3–4, 5–6, 7–8, 9–10, 11–12 |
+| Kangaroo Mathematics | Year 3–4 (Känguru), 5–6 (Cadet), 7–8 (Junior), 9–10 (Student), 11–12 (Senior) |
 
 ---
 
@@ -930,6 +932,7 @@ Design: always dark (`#0a0b1a`), glow blobs, `max-w-2xl`, white headings, `slate
 | **v0.11.0** | June 2026 | Deployment protection fix — Vercel SSO protection (`ssoProtection: all_except_custom_domains`) was inadvertently blocking all public access to the app. Disabled via Vercel API (`PATCH /v9/projects/{id}`). App is now publicly accessible without a Vercel account |
 | **v0.12.0** | June 2026 | Share-readiness pass — (1) In-memory rate limiting added to all four AI API routes (`lib/ratelimit.ts`): 30 req/min for chat, 3–5 req/10 min for exam routes. (2) Branded favicon via `app/icon.tsx` (32×32 PNG, "SE" in cyan/pink). (3) Social preview card via `app/opengraph-image.tsx` (1200×630 PNG with full brand treatment). (4) `layout.tsx` metadata updated with `metadataBase`, `openGraph`, and `twitter` fields. (5) Privacy policy page at `/privacy` covering Australian Privacy Act, children's privacy, third-party services, and data retention. Privacy Policy link added to splash screen footer |
 | **v0.13.0** | June 2026 | Landing page expansion and About OG image — Splash screen converted to scrollable landing page with Features (Chat/Practice/Exam cards), Exams (6 branded cards with year level ranges), Trust strip (No account / Free / Claude AI), and footer CTA. Hero remains full-screen above the fold. About OG image redesigned: San's photo fills the full 1200×630 card (full-bleed, objectFit cover), dark gradient overlay on bottom 68%, founder headline and wordmark anchored bottom-left |
+| **v0.14.0** | June 2026 | Added Bebras and Kangaroo Mathematics — both available in Chat, Practice, and Exam modes. Exam format prompts added to generate route (Bebras: 10 MC computational thinking tasks; Kangaroo: 10 MC with 5 options, competition-style maths). Year level dropdowns added for both. Landing page exam grid expanded to 8 cards (2×4 on desktop). OG image badge row updated to two rows of 4. Hero tagline shortened to fit all 8 names |
 
 ---
 

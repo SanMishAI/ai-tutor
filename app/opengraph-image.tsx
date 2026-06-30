@@ -92,32 +92,38 @@ export default function OGImage() {
             maxWidth: 720,
           }}
         >
-          AI-powered preparation for Australian selective exams
+          AI-powered preparation for Australian & international competitions
         </div>
 
-        {/* Exam badges row */}
+        {/* Exam badges — two rows of 4 */}
         <div
           style={{
             display: 'flex',
-            gap: 12,
-            marginTop: 44,
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 10,
+            marginTop: 36,
           }}
         >
-          {['AMC', 'Maths Olympiad', 'ACER', 'ICAS', 'ATAR', 'NAPLAN'].map((label) => (
+          {[['AMC', 'Olympiad', 'ACER', 'ICAS'], ['ATAR', 'NAPLAN', 'Bebras', 'Kangaroo']].map((row, ri) => (
+            <div key={ri} style={{ display: 'flex', gap: 10 }}>
+              {row.map((label) => (
             <div
               key={label}
               style={{
-                padding: '8px 18px',
+                padding: '7px 16px',
                 borderRadius: 999,
                 border: '1px solid rgba(255,255,255,0.12)',
                 background: 'rgba(255,255,255,0.05)',
                 color: '#cbd5e1',
-                fontSize: 18,
+                fontSize: 16,
                 fontFamily: 'Arial, sans-serif',
                 fontWeight: 600,
               }}
             >
               {label}
+            </div>
+              ))}
             </div>
           ))}
         </div>

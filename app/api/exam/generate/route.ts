@@ -51,6 +51,10 @@ const EXAM_FORMATS: Record<string, string> = {
     "5 multiple choice questions with exactly 4 options each (A, B, C, D) and 5 open-ended short answer questions. Style: HSC/WACE exam format.",
   "NAPLAN":
     "5 multiple choice questions with exactly 4 options each (A, B, C, D) covering numeracy and literacy, and 5 short answer questions covering reading comprehension, language conventions, and numeracy. Style: Australian Years 7-9 NAPLAN level.",
+  "Bebras":
+    "10 multiple choice computational thinking tasks with exactly 4 options each (A, B, C, D). Each task presents a concrete self-contained scenario (a story, table, grid, or sequence) and tests one concept from: algorithms and step-by-step logic, data representation, pattern recognition, decomposition, or logical deduction. No prior computing knowledge required — pure reasoning only.",
+  "Kangaroo Mathematics":
+    "10 multiple choice questions with exactly 5 options each (A, B, C, D, E). Style: elegant and accessible competition mathematics — arithmetic, geometry, algebra, combinatorics, and number theory. Questions are self-contained, require no calculator, and often have surprising or elegant solutions. Difficulty increases across the 10 questions.",
 }
 
 function extractJson(text: string): unknown {
