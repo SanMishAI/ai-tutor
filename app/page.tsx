@@ -8,6 +8,8 @@ import rehypeRaw from "rehype-raw"
 import { SignInButton, UserButton, useUser } from "@clerk/nextjs"
 import Sidebar from "./components/Sidebar"
 import ExamView from "./components/ExamView"
+import BreakZone from "./components/BreakZone"
+import FeedbackForm from "./components/FeedbackForm"
 import type { Message, Conversation } from "./types"
 
 const SUBJECTS = [
@@ -574,7 +576,7 @@ export default function Home() {
               Start Learning →
             </button>
             <p className="text-sm" style={{ color: "#4a5568" }}>
-              AMC · Olympiad · ACER · ICAS · ATAR · NAPLAN · Bebras · Kangaroo
+              AMC · Olympiad · ACER · ICAS · ATAR · NAPLAN · Bebras · KSF
             </p>
           </div>
         </div>
@@ -678,6 +680,13 @@ export default function Home() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* ── BREAK ZONE + FEEDBACK ── */}
+        <div className="max-w-4xl mx-auto px-6 pb-8 space-y-4">
+          <p className="text-xs font-semibold tracking-widest text-indigo-400 uppercase text-center mb-6">Need a moment?</p>
+          <BreakZone />
+          <FeedbackForm />
         </div>
 
         {/* ── FOOTER ── */}
