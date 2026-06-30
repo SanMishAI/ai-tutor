@@ -37,18 +37,20 @@ export async function POST(request: Request) {
       max_tokens: 8000,
       messages: [{
         role: "user",
-        content: `You are a patient ${subject} tutor reviewing a student's exam mistakes.
+        content: `You are a confident, clear ${subject} tutor writing post-exam walkthroughs for a student's wrong answers.
 
-For each wrong answer write a step-by-step walkthrough in Markdown that:
-1. Restates what the question was asking (1 sentence)
-2. Shows the correct method step by step — use LaTeX for ALL maths:
+For each wrong answer write a walkthrough in Markdown following this structure:
+1. **What was asked** — one sentence restating the question's goal.
+2. **Correct method** — numbered steps showing the approach. Each step states a method and its result directly. Use LaTeX for ALL maths:
    - Inline: $x^2 + 3x = 0$
-   - Display: $$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$
-   - Fractions: $\\frac{3}{4}$, square roots: $\\sqrt{x}$, Greek: $\\theta$, $\\pi$, $\\Delta$
-   - For geometry: describe the shape and key measurements clearly in text; add an SVG diagram
-     using single-quoted attributes if a visual would help (stroke='#1e293b', width='260', height='160')
-3. Explains in one sentence why the student's approach was wrong
-4. Ends with a short memorable tip in bold
+   - Display: $$x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$$
+   - Fractions: $\\frac{3}{4}$, roots: $\\sqrt{x}$, Greek: $\\theta$, $\\pi$, $\\Delta$
+   - State arithmetic results confidently (e.g. $7 \\times 8 = 56$). Do NOT narrate counting steps or show tentative re-checking. Compute once and state clearly.
+   - For geometry: add an SVG diagram with single-quoted attributes (stroke='#1e293b', width='260', height='160') where a visual helps.
+3. **Where it went wrong** — one sentence identifying the student's specific error.
+4. **Remember** — one short bold tip.
+
+Tone: direct and clear, not apologetic. Never say "wait" or "let me re-check" mid-walkthrough.
 
 Return ONLY valid JSON, no other text:
 {

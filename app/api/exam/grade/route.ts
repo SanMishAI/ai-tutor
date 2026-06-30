@@ -47,16 +47,18 @@ export async function POST(request: Request) {
     {
       "id": 1,
       "correct": true,
-      "correctAnswer": "letter only for MC (e.g. B), or the correct answer for open-ended. Use LaTeX for any math.",
-      "explanation": "1-2 sentence explanation using LaTeX for all maths e.g. Area $= \\frac{1}{2} \\times 6 \\times 4 = 12\\,\\text{cm}^2$"
+      "correctAnswer": "letter only for MC (e.g. B), or the correct value for open-ended. Use LaTeX for any maths.",
+      "explanation": "1-2 sentences: state the correct answer/method and why the student was right or wrong. Use LaTeX for ALL maths."
     }
   ]
 }
 
-Notes:
-- Student answers are letter-only (A, B, C, D, E) for multiple choice. Match to the option with that letter.
-- Question text may reference [diagram] where an SVG diagram appeared — treat as a visual element.
-- Use LaTeX ($...$) for ALL mathematical expressions in correctAnswer and explanation.
+Rules:
+- Student answers for MC are letter-only (A, B, C, D, E). Compare to the option with that letter.
+- [diagram] marks where an SVG appeared — treat as a visual element.
+- Use LaTeX ($...$) for ALL mathematical expressions.
+- Be precise and confident. State arithmetic results directly (e.g. $3 \\times 4 = 12$) — do NOT narrate step-by-step counting or show tentative re-checking.
+- Explanations must be concise: 1-2 sentences maximum.
 
 Questions and student answers:
 ${JSON.stringify(questionsWithAnswers, null, 2)}`
