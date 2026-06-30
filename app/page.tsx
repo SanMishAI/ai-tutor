@@ -76,7 +76,7 @@ function Wordmark() {
         style={{
           fontSize: "clamp(22px, 5.5vw, 34px)",
           fontFamily: '"Arial Black", Impact, system-ui',
-          background: "linear-gradient(90deg, #00e5ff 0%, #4499ff 55%, #0055ff 100%)",
+          background: "linear-gradient(90deg, #56DBFF 0%, #0066CB 60%)",
           WebkitBackgroundClip: "text",
           WebkitTextFillColor: "transparent",
           backgroundClip: "text",
@@ -86,7 +86,7 @@ function Wordmark() {
         Select
         <span
           style={{
-            background: "linear-gradient(90deg, #ff44aa, #cc00ff)",
+            background: "linear-gradient(90deg, #FDC800, #E34C00)",
             WebkitBackgroundClip: "text",
             WebkitTextFillColor: "transparent",
             backgroundClip: "text",
@@ -96,11 +96,11 @@ function Wordmark() {
         </span>
       </div>
       <div className="flex items-center gap-1 mt-0.5" style={{ fontSize: 13, fontWeight: 600 }}>
-        <span style={{ color: "#16a34a" }}>Sharpen</span>
+        <span style={{ color: "#FDC800" }}>Sharpen</span>
         <span style={{ color: "#9ca3af" }}>·</span>
-        <span style={{ color: "#0284c7" }}>Sit</span>
+        <span style={{ color: "#1DA4F3" }}>Sit</span>
         <span style={{ color: "#9ca3af" }}>·</span>
-        <span style={{ color: "#d97706" }}>Succeed.</span>
+        <span style={{ color: "#E34C00" }}>Succeed.</span>
       </div>
     </div>
   )
@@ -568,12 +568,12 @@ export default function Home() {
 
   if (!splashDone) {
     return (
-      <div className="overflow-y-auto" style={{ backgroundColor: "#0a0b1a", color: "#f1f5f9" }}>
+      <div className="overflow-y-auto" style={{ backgroundColor: "#000936", color: "#f1f5f9" }}>
 
         {/* ── HERO ── */}
         <div className="relative h-[100dvh] flex flex-col items-center justify-center gap-6 sm:gap-8 overflow-hidden">
-          <div className="absolute w-48 h-48 sm:w-96 sm:h-96 rounded-full opacity-10 blur-3xl pointer-events-none" style={{ background: "#7c3aed", top: "10%", left: "10%" }} />
-          <div className="absolute w-40 h-40 sm:w-80 sm:h-80 rounded-full opacity-10 blur-3xl pointer-events-none" style={{ background: "#0ea5e9", bottom: "15%", right: "12%" }} />
+          <div className="absolute w-48 h-48 sm:w-96 sm:h-96 rounded-full opacity-15 blur-3xl pointer-events-none" style={{ background: "#E34C00", top: "10%", left: "10%" }} />
+          <div className="absolute w-40 h-40 sm:w-80 sm:h-80 rounded-full opacity-15 blur-3xl pointer-events-none" style={{ background: "#0066CB", bottom: "15%", right: "12%" }} />
 
           {/* Nav bar */}
           <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-5 sm:px-8 py-4 z-10">
@@ -586,15 +586,15 @@ export default function Home() {
             </button>
           </div>
 
-          <Logo size={320} style={{ width: "min(70vw, 320px)", height: "auto" }} />
+          <img src="/selected-logo.svg" alt="SelectEd" className="select-none shrink-0" style={{ width: "min(80vw, 400px)", height: "auto" }} />
 
           <div className="flex flex-col items-center gap-4 relative z-10">
             <button
               onClick={() => setSplashDone(true)}
               className="px-10 py-4 rounded-full text-white font-bold text-xl tracking-wide transition-all hover:scale-105 active:scale-95 shadow-2xl"
               style={{
-                background: "linear-gradient(135deg, #00e5ff 0%, #7c3aed 50%, #ff44aa 100%)",
-                boxShadow: "0 0 32px #7c3aed88",
+                background: "linear-gradient(135deg, #E34C00 0%, #FDC800 50%, #0066CB 100%)",
+                boxShadow: "0 0 32px #FDC80066",
               }}
             >
               Start Learning →
@@ -726,7 +726,7 @@ export default function Home() {
           <button
             onClick={() => setSplashDone(true)}
             className="px-8 py-3 rounded-full text-white font-bold text-base tracking-wide transition-all hover:scale-105 active:scale-95"
-            style={{ background: "linear-gradient(135deg, #00e5ff 0%, #7c3aed 50%, #ff44aa 100%)" }}
+            style={{ background: "linear-gradient(135deg, #E34C00 0%, #FDC800 50%, #0066CB 100%)" }}
           >
             Start Learning →
           </button>

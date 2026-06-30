@@ -11,7 +11,7 @@ export default function Icon() {
           width: 32,
           height: 32,
           borderRadius: 7,
-          background: '#0a0b1a',
+          background: '#000936',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -22,8 +22,8 @@ export default function Icon() {
           letterSpacing: -0.5,
         }}
       >
-        <span style={{ color: '#00e5ff' }}>S</span>
-        <span style={{ color: '#ff44aa' }}>E</span>
+        <span style={{ color: '#56DBFF' }}>S</span>
+        <span style={{ color: '#FDC800' }}>E</span>
       </div>
     ),
     { ...size },

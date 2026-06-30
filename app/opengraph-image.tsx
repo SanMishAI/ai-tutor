@@ -11,7 +11,7 @@ export default function OGImage() {
         style={{
           width: '100%',
           height: '100%',
-          background: '#0a0b1a',
+          background: '#000936',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
@@ -20,28 +20,30 @@ export default function OGImage() {
           overflow: 'hidden',
         }}
       >
-        {/* Purple glow — top left */}
+        {/* Gold/orange glow — top left */}
         <div
           style={{
             position: 'absolute',
             width: 500,
             height: 500,
             borderRadius: 9999,
-            background: 'radial-gradient(circle, rgba(124,58,237,0.35) 0%, transparent 70%)',
+            background: 'radial-gradient(circle, rgba(227,76,0,0.35) 0%, transparent 70%)',
             top: -150,
             left: -120,
+            display: 'flex',
           }}
         />
-        {/* Cyan glow — bottom right */}
+        {/* Blue glow — bottom right */}
         <div
           style={{
             position: 'absolute',
             width: 420,
             height: 420,
             borderRadius: 9999,
-            background: 'radial-gradient(circle, rgba(0,229,255,0.2) 0%, transparent 70%)',
+            background: 'radial-gradient(circle, rgba(0,102,203,0.3) 0%, transparent 70%)',
             bottom: -130,
             right: -100,
+            display: 'flex',
           }}
         />
 
@@ -58,8 +60,8 @@ export default function OGImage() {
             marginBottom: 20,
           }}
         >
-          <span style={{ color: '#00e5ff' }}>Select</span>
-          <span style={{ color: '#ff44aa' }}>Ed</span>
+          <span style={{ color: '#56DBFF' }}>Select</span>
+          <span style={{ color: '#FDC800' }}>Ed</span>
         </div>
 
         {/* Tagline */}
@@ -74,11 +76,11 @@ export default function OGImage() {
             marginBottom: 36,
           }}
         >
-          <span style={{ color: '#16a34a' }}>Sharpen</span>
+          <span style={{ color: '#FDC800' }}>Sharpen</span>
           <span style={{ color: '#6b7280' }}>·</span>
-          <span style={{ color: '#0284c7' }}>Sit</span>
+          <span style={{ color: '#1DA4F3' }}>Sit</span>
           <span style={{ color: '#6b7280' }}>·</span>
-          <span style={{ color: '#d97706' }}>Succeed.</span>
+          <span style={{ color: '#E34C00' }}>Succeed.</span>
         </div>
 
         {/* Subtitle */}
