@@ -27,6 +27,7 @@
    - 6.6 Chat History Sidebar
    - 6.7 Brain Break (Trivia Zone)
    - 6.8 Feedback Form
+   - 6.9 Welcome Screen ("Choose Your Mission")
 7. [API Routes](#7-api-routes)
 8. [State Management](#8-state-management)
 9. [Data Persistence](#9-data-persistence)
@@ -157,7 +158,8 @@ ai-tutor/
 │   │   ├── BreakZone.tsx             # Brain Break trivia quiz (landing page)
 │   │   ├── ExamView.tsx              # All exam UI (setup → in-progress → results → review)
 │   │   ├── FeedbackForm.tsx          # Emoji mood + text feedback form (landing page)
-│   │   └── Sidebar.tsx               # Chat history sidebar
+│   │   ├── Sidebar.tsx               # Chat history sidebar
+│   │   └── WelcomeScreen.tsx         # "Choose your mission" onboarding (between splash and app)
 │   ├── generated/
 │   │   └── prisma/                   # Auto-generated Prisma client (do not edit)
 │   ├── sign-in/[[...sign-in]]/
@@ -235,7 +237,10 @@ Home (page.tsx)
 │
 ├── [Splash Screen]          shown when splashDone === false
 │
-└── [Main App]               shown when splashDone === true
+├── [WelcomeScreen]          shown when splashDone === true && introSeen === false
+│       └── Step 1: exam card grid → Step 2: year pills + mode buttons → sets introSeen
+│
+└── [Main App]               shown when splashDone === true && introSeen === true
     │
     ├── <header>
     │   ├── ☰ sidebar toggle button
@@ -411,6 +416,41 @@ On the results screen, the **"📖 Review N Mistakes with AI Tutor"** button cal
 **Responsive behaviour:** Collapsed by default on mobile, open on desktop (≥ 640px). `useEffect` on mount uses `window.matchMedia("(min-width: 640px)")` with a `change` listener to track orientation changes. On mobile, the sidebar is a `fixed` overlay (z-50) with a semi-transparent backdrop — tapping closes it. On desktop, it is `relative` inline.
 
 **Storage:** When the user is a guest, conversations are stored in `localStorage` under `tutormate_conversations`. When signed in, they are loaded from and saved to the Neon database via `/api/conversations`.
+
+---
+
+### 6.9 Welcome Screen ("Choose Your Mission")
+
+**File:** `app/components/WelcomeScreen.tsx`
+
+Shown once per session, between the landing page and the main app. Triggered when the user clicks "Start Learning →" on the splash screen. Replaces the jarring cold-entry into a blank chat UI with an engaging onboarding flow.
+
+**Page flow:**
+```
+Landing page  →  [Start Learning]  →  WelcomeScreen  →  Main app
+                                       (splashDone=true,     (introSeen=true,
+                                        introSeen=false)      subject/year/mode set)
+```
+
+**Step 1 — Pick your exam:**
+- Header: 🚀 "Choose your mission"
+- 2×4 grid of exam cards (AMC, Olympiad, ACER, ICAS, ATAR, NAPLAN, Bebras, KSF)
+- Each card shows: emoji · short label in brand colour · one-line description
+- Cards glow in their brand colour on hover
+- Clicking a card selects it and advances to Step 2
+
+**Step 2 — Pick year level + mode:**
+- Selected exam shown as a large emoji + coloured label
+- Year level: pill buttons (from the same `YEAR_LEVELS` data as the main app; coloured to match the chosen exam)
+- Three mode buttons: 💬 Chat with tutor · 📝 Practice problems · 📋 Timed exam
+- Clicking a mode button calls `onStart(subject, yearLevel, mode)` → sets state in `page.tsx` and sets `introSeen = true`
+- "← Change exam" link returns to Step 1
+
+**State management:**
+- `introSeen` boolean lives in `page.tsx` (React state, resets on page refresh — intentional so each new session starts with quest selection)
+- `onStart` callback sets `subject`, `yearLevel`, `mode` in `page.tsx` before revealing the main app
+
+**Design:** same dark `#0a0b1a` background and glow blobs as the splash screen, so the transition feels seamless.
 
 ---
 
@@ -591,7 +631,8 @@ All state lives in two components. There is no global store.
 
 | Variable | Type | Purpose |
 |----------|------|---------|
-| `splashDone` | `boolean` | Controls splash vs main app |
+| `splashDone` | `boolean` | Controls splash vs welcome/main app |
+| `introSeen` | `boolean` | Controls welcome screen vs main app (resets on page refresh) |
 | `isDark` | `boolean` | OS dark-mode preference |
 | `conversations` | `Conversation[]` | Chat history — sourced from DB (signed in) or localStorage (guest) |
 | `activeId` | `string \| null` | Which conversation is currently open |
@@ -1016,8 +1057,9 @@ Design: always dark (`#0a0b1a`), glow blobs, `max-w-2xl`, white headings, `slate
 | **v0.13.0** | June 2026 | Landing page expansion and About OG image — Splash screen converted to scrollable landing page with Features (Chat/Practice/Exam cards), Exams (6 branded cards with year level ranges), Trust strip (No account / Free / Claude AI), and footer CTA. Hero remains full-screen above the fold. About OG image redesigned: San's photo fills the full 1200×630 card (full-bleed, objectFit cover), dark gradient overlay on bottom 68%, founder headline and wordmark anchored bottom-left |
 | **v0.14.0** | June 2026 | Added Bebras and Kangourou sans frontières (KSF) — both available in Chat, Practice, and Exam modes. Exam format prompts added to generate route (Bebras: 10 MC computational thinking tasks; Kangaroo: 10 MC with 5 options, competition-style maths). Year level dropdowns added for both. Landing page exam grid expanded to 8 cards (2×4 on desktop). OG image badge row updated to two rows of 4. Hero tagline shortened to fit all 8 names |
 | **v0.15.0** | June 2026 | Brain Break trivia zone and Feedback form added to landing page. `BreakZone.tsx` — collapsible panel with 6 category choices; Claude generates 5 fun MC questions per session with fun facts and per-answer feedback; score screen with emoji message. `FeedbackForm.tsx` — emoji mood picker (5 options) + optional text (500 chars); saves to new `Feedback` table in Neon (nullable userId so guests can submit). New API routes: `POST /api/trivia` (rate-limited 10/min) and `POST /api/feedback` (auth-optional). Prisma schema updated with `Feedback` model; `prisma db push` applied |
+| **v0.16.0** | June 2026 | Welcome Screen ("Choose your mission") added between landing page and main app. `WelcomeScreen.tsx` shows once per session after clicking Start Learning. Step 1: 8 colourful exam cards with per-exam brand colours and glow-on-hover. Step 2: year level pill buttons + three mode start buttons (Chat / Practice / Exam). Selection pre-fills `subject`, `yearLevel`, and `mode` in the main app before the user sees a single input field. `introSeen` boolean in `page.tsx` controls visibility; resets on page refresh so each new session starts with quest selection. Also: scroll-down hint (bouncing chevron) added to hero, back-to-top button (fixed bottom-right, appears after scrolling past the hero) added to splash, "6 Australian exams" heading corrected to "8 Australian exams" |
 
 ---
 
-*Document last updated: 30 June 2026 (v0.15). Updated alongside the codebase whenever routes, components, or UX decisions change.*
+*Document last updated: 30 June 2026 (v0.16). Updated alongside the codebase whenever routes, components, or UX decisions change.*
 *Author: Santrupta Mishra (San) — Founder, SelectEd*
