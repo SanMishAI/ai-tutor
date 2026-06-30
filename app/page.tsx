@@ -558,15 +558,27 @@ export default function Home() {
           <p className="text-sm" style={{ color: "#4a5568" }}>
             AI-powered prep for AMC · Maths Olympiad · ACER · ICAS · ATAR · NAPLAN
           </p>
-          <a
-            href="/about"
-            className="text-xs transition-colors"
-            style={{ color: "#4a5568" }}
-            onMouseEnter={e => (e.currentTarget.style.color = "#818cf8")}
-            onMouseLeave={e => (e.currentTarget.style.color = "#4a5568")}
-          >
-            About the founder
-          </a>
+          <div className="flex items-center gap-4">
+            <a
+              href="/about"
+              className="text-xs transition-colors"
+              style={{ color: "#4a5568" }}
+              onMouseEnter={e => (e.currentTarget.style.color = "#818cf8")}
+              onMouseLeave={e => (e.currentTarget.style.color = "#4a5568")}
+            >
+              About the founder
+            </a>
+            <span style={{ color: "#2d3748" }}>·</span>
+            <a
+              href="/privacy"
+              className="text-xs transition-colors"
+              style={{ color: "#4a5568" }}
+              onMouseEnter={e => (e.currentTarget.style.color = "#818cf8")}
+              onMouseLeave={e => (e.currentTarget.style.color = "#4a5568")}
+            >
+              Privacy Policy
+            </a>
+          </div>
         </div>
       </div>
     )

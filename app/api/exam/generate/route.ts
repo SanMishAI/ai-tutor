@@ -1,6 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { createRateLimiter, getIp } from '@/lib/ratelimit'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
+const checkRateLimit = createRateLimiter(3, 10 * 60_000) // 3 per 10 minutes
 
 const RICH_CONTENT_RULES = `
 FORMATTING RULES — apply to every question, option, and explanation:
@@ -60,6 +63,10 @@ function extractJson(text: string): unknown {
 }
 
 export async function POST(request: Request) {
+  if (!checkRateLimit(getIp(request))) {
+    return Response.json({ error: 'Too many requests. Please wait before generating another exam.' }, { status: 429 })
+  }
+
   try {
     const { subject, yearLevel } = await request.json()
     const format = EXAM_FORMATS[subject] ?? "10 open-ended questions appropriate for Australian high school level."

@@ -1,8 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { createRateLimiter, getIp } from '@/lib/ratelimit'
 
 const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 })
+
+const checkRateLimit = createRateLimiter(30, 60_000) // 30 per minute
 
 const MATH_FORMAT_RULES = `
 FORMATTING RULES for all responses:
@@ -58,6 +61,10 @@ type Message = {
 }
 
 export async function POST(request: Request) {
+  if (!checkRateLimit(getIp(request))) {
+    return Response.json({ error: 'Too many requests. Please slow down.' }, { status: 429 })
+  }
+
   try {
     const { messages, subject, yearLevel, mode } = await request.json()
 

@@ -23,7 +23,21 @@ const caveat = Caveat({
 
 export const metadata: Metadata = {
   title: "SelectEd",
-  description: "Sharpen. Sit. Succeed. AI-powered preparation for Australian selective exams.",
+  description: "AI-powered exam prep for AMC, Maths Olympiad, ACER, ICAS, ATAR, and NAPLAN. Chat with a Socratic tutor, practice problems, and take timed mock exams.",
+  metadataBase: new URL("https://selected-ed.vercel.app"),
+  openGraph: {
+    title: "SelectEd — Sharpen. Sit. Succeed.",
+    description: "AI-powered exam prep for AMC, Maths Olympiad, ACER, ICAS, ATAR, and NAPLAN. Chat with a Socratic tutor, practice problems, and take timed mock exams.",
+    url: "https://selected-ed.vercel.app",
+    siteName: "SelectEd",
+    type: "website",
+    locale: "en_AU",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "SelectEd — Sharpen. Sit. Succeed.",
+    description: "AI-powered exam prep for AMC, Maths Olympiad, ACER, ICAS, ATAR, and NAPLAN. Chat with a Socratic tutor, practice problems, and take timed mock exams.",
+  },
 };
 
 export const viewport = {

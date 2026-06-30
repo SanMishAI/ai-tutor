@@ -1,6 +1,9 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { createRateLimiter, getIp } from '@/lib/ratelimit'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
+const checkRateLimit = createRateLimiter(3, 10 * 60_000) // 3 per 10 minutes
 
 function stripSvg(text: string): string {
   return text.replace(/<svg[\s\S]*?<\/svg>/gi, "[diagram]")
@@ -16,6 +19,10 @@ function extractJson(text: string): unknown {
 }
 
 export async function POST(request: Request) {
+  if (!checkRateLimit(getIp(request))) {
+    return Response.json({ error: 'Too many requests. Please slow down.' }, { status: 429 })
+  }
+
   try {
     const { subject, wrongQuestions } = await request.json()
 

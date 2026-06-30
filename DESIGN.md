@@ -34,8 +34,10 @@
 13. [Local Development Setup](#13-local-development-setup)
 14. [Roadmap](#14-roadmap)
 15. [Deployment](#15-deployment)
-16. [About Page](#16-about-page)
-17. [Version History](#17-version-history)
+16. [Favicon & Open Graph](#16-favicon--open-graph)
+17. [Privacy Policy](#17-privacy-policy)
+18. [About Page](#18-about-page)
+19. [Version History](#19-version-history)
 
 ---
 
@@ -126,6 +128,10 @@ ai-tutor/
 ├── app/
 │   ├── about/
 │   │   └── page.tsx                  # Founder story page (/about)
+│   ├── privacy/
+│   │   └── page.tsx                  # Privacy policy page (/privacy)
+│   ├── icon.tsx                      # Branded favicon (32×32 PNG via ImageResponse)
+│   ├── opengraph-image.tsx           # Social preview card (1200×630 PNG via ImageResponse)
 │   ├── api/
 │   │   ├── chat/
 │   │   │   └── route.ts              # Socratic tutor (chat + practice)
@@ -153,7 +159,8 @@ ai-tutor/
 │   ├── page.tsx                      # Main page: splash, header, controls, chat/practice/exam
 │   └── types.ts                      # Shared TypeScript types
 ├── lib/
-│   └── db.ts                         # Prisma client singleton (with Neon HTTP adapter)
+│   ├── db.ts                         # Prisma client singleton (with Neon HTTP adapter)
+│   └── ratelimit.ts                  # In-memory rate limiter (createRateLimiter + getIp)
 ├── prisma/
 │   ├── migrations/                   # Prisma migration history
 │   └── schema.prisma                 # Database schema (Conversation, ExamResult, PracticeResult)
@@ -386,6 +393,19 @@ On the results screen, the **"📖 Review N Mistakes with AI Tutor"** button cal
 ---
 
 ## 7. API Routes
+
+### Rate limiting
+
+All AI routes are protected by an in-memory rate limiter (`lib/ratelimit.ts`) keyed on the client IP address (read from `x-forwarded-for` / `x-real-ip` headers set by Vercel's proxy). Limits are enforced per serverless function instance; a `429 Too Many Requests` response is returned when exceeded.
+
+| Route | Limit |
+|-------|-------|
+| `POST /api/chat` | 30 requests / minute |
+| `POST /api/exam/generate` | 3 requests / 10 minutes |
+| `POST /api/exam/grade` | 5 requests / 10 minutes |
+| `POST /api/exam/review` | 3 requests / 10 minutes |
+
+> **Note:** The limiter is in-process. Under heavy load Vercel may spin up multiple instances, each with its own counter. This is sufficient to prevent casual abuse; replace with Upstash Redis if higher traffic demands distributed enforcement.
 
 ### AI routes (no auth required)
 
@@ -819,7 +839,46 @@ All variables in Section 12 must be set in **Vercel dashboard → Project → Se
 
 ---
 
-## 16. About Page
+## 16. Favicon & Open Graph
+
+### Favicon
+
+`app/icon.tsx` generates a 32×32 PNG at build time using Next.js `ImageResponse`. Design: dark rounded square (`#0a0b1a`) with "S" in cyan (`#00e5ff`) and "E" in pink (`#ff44aa`), italic bold. Next.js injects `<link rel="icon">` automatically.
+
+The legacy `app/favicon.ico` (Next.js scaffold default) remains as a fallback for very old browsers.
+
+### Open Graph / social preview
+
+`app/opengraph-image.tsx` generates a 1200×630 PNG at build time. Design:
+- Background: `#0a0b1a` with purple radial glow (top-left) and cyan radial glow (bottom-right)
+- Wordmark: "Select" in `#00e5ff`, "Ed" in `#ff44aa`, 130px italic bold
+- Tagline: coloured "Sharpen · Sit · Succeed." row
+- Subtitle: slate-400 description
+- Badge row: AMC · Maths Olympiad · ACER · ICAS · ATAR · NAPLAN
+
+`app/layout.tsx` metadata includes `metadataBase`, `openGraph`, and `twitter: { card: "summary_large_image" }` so all major platforms (WhatsApp, iMessage, Twitter/X, Slack, LinkedIn) render a rich preview card.
+
+---
+
+## 17. Privacy Policy
+
+**Route:** `/privacy`
+**File:** `app/privacy/page.tsx`
+**Type:** Static server component
+
+Covers Australian Privacy Act 1988 / APPs compliance. Key sections:
+- What is collected (different for guests vs signed-in users)
+- Third-party services table (Clerk, Neon, Anthropic, Vercel)
+- Children's privacy note (target audience includes minors)
+- Data retention and deletion instructions
+- Contact: santrupta.mishra@gmail.com
+
+Linked from the splash screen footer alongside "About the founder".
+
+---
+
+## 18. About Page
+
 
 **Route:** `/about`
 **File:** `app/about/page.tsx`
@@ -839,7 +898,7 @@ Design: always dark (`#0a0b1a`), glow blobs, `max-w-2xl`, white headings, `slate
 
 ---
 
-## 17. Version History
+## 19. Version History
 
 | Version | Date | Summary |
 |---------|------|---------|
@@ -854,8 +913,9 @@ Design: always dark (`#0a0b1a`), glow blobs, `max-w-2xl`, white headings, `slate
 | **v0.9.0** | June 2026 | Cloud data persistence — Neon PostgreSQL database (AWS Sydney), Prisma 7 ORM with `prisma-client` generator and `PrismaNeonHttp` adapter. Three tables: `Conversation`, `ExamResult`, `PracticeResult`. Conversations, exam results, and practice results sync to the cloud for signed-in users. Guests continue to use localStorage |
 | **v0.10.0** | June 2026 | Rich math and image support — `rehype-raw` added so inline SVG passes through the ReactMarkdown pipeline. All AI prompts (chat, practice, exam generate/grade/review) updated with detailed LaTeX formatting rules (fractions, roots, Greek letters, vectors, chemistry, physics units, integrals) and SVG diagram generation guidelines. Geometry exam questions now include inline SVG diagrams. Answer options render through the full KaTeX+SVG pipeline. Answers stored as letter-only (A/B/C/D/E). `stripSvg()` used before sending to grade/review APIs to keep context lean. `max_tokens` raised to 8000 for generate and review routes, 2048 for chat |
 | **v0.11.0** | June 2026 | Deployment protection fix — Vercel SSO protection (`ssoProtection: all_except_custom_domains`) was inadvertently blocking all public access to the app. Disabled via Vercel API (`PATCH /v9/projects/{id}`). App is now publicly accessible without a Vercel account |
+| **v0.12.0** | June 2026 | Share-readiness pass — (1) In-memory rate limiting added to all four AI API routes (`lib/ratelimit.ts`): 30 req/min for chat, 3–5 req/10 min for exam routes. (2) Branded favicon via `app/icon.tsx` (32×32 PNG, "SE" in cyan/pink). (3) Social preview card via `app/opengraph-image.tsx` (1200×630 PNG with full brand treatment). (4) `layout.tsx` metadata updated with `metadataBase`, `openGraph`, and `twitter` fields. (5) Privacy policy page at `/privacy` covering Australian Privacy Act, children's privacy, third-party services, and data retention. Privacy Policy link added to splash screen footer |
 
 ---
 
-*Document last updated: June 2026. Updated alongside the codebase whenever routes, components, or UX decisions change.*
+*Document last updated: 30 June 2026. Updated alongside the codebase whenever routes, components, or UX decisions change.*
 *Author: Santrupta Mishra (San) — Founder, SelectEd*
