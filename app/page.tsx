@@ -18,7 +18,7 @@ const SUBJECTS = [
   "ATAR",
   "NAPLAN",
   "Bebras",
-  "Kangaroo Mathematics",
+  "Kangourou sans frontières (KSF)",
 ]
 
 const YEAR_LEVELS: Record<string, string[]> = {
@@ -40,7 +40,7 @@ const YEAR_LEVELS: Record<string, string[]> = {
   "Bebras": [
     "Year 3–4", "Year 5–6", "Year 7–8", "Year 9–10", "Year 11–12",
   ],
-  "Kangaroo Mathematics": [
+  "Kangourou sans frontières (KSF)": [
     "Year 3–4 (Känguru)", "Year 5–6 (Cadet)", "Year 7–8 (Junior)", "Year 9–10 (Student)", "Year 11–12 (Senior)",
   ],
 }
@@ -645,7 +645,7 @@ export default function Home() {
               { short: "ATAR", name: "ATAR", years: "Year 11 – 12", color: "#fbbf24" },
               { short: "NAPLAN", name: "NAPLAN", years: "Year 3, 5, 7, 9", color: "#f97316" },
               { short: "Bebras", name: "Bebras Computational Thinking", years: "Year 3 – 12", color: "#06b6d4" },
-              { short: "Kangaroo", name: "Kangaroo Mathematics", years: "Year 3 – 12", color: "#e879f9" },
+              { short: "Kangaroo", name: "Kangourou sans frontières (KSF)", years: "Year 3 – 12", color: "#e879f9" },
             ] as const).map(({ short, name, years, color }) => (
               <div
                 key={short}

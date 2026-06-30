@@ -105,7 +105,7 @@ export default function OGImage() {
             marginTop: 36,
           }}
         >
-          {[['AMC', 'Olympiad', 'ACER', 'ICAS'], ['ATAR', 'NAPLAN', 'Bebras', 'Kangaroo']].map((row, ri) => (
+          {[['AMC', 'Olympiad', 'ACER', 'ICAS'], ['ATAR', 'NAPLAN', 'Bebras', 'KSF']].map((row, ri) => (
             <div key={ri} style={{ display: 'flex', gap: 10 }}>
               {row.map((label) => (
             <div
