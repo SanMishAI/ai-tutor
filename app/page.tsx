@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkMath from "remark-math"
 import rehypeKatex from "rehype-katex"
+import rehypeRaw from "rehype-raw"
 import { SignInButton, UserButton, useUser } from "@clerk/nextjs"
 import Sidebar from "./components/Sidebar"
 import ExamView from "./components/ExamView"
@@ -749,7 +750,7 @@ export default function Home() {
                         {msg.role === "user" ? (
                           <span>{msg.content}</span>
                         ) : (
-                          <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                          <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeRaw, rehypeKatex]}>
                             {msg.content}
                           </ReactMarkdown>
                         )}
@@ -789,7 +790,7 @@ export default function Home() {
                           : "bg-indigo-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-bl-sm prose prose-sm dark:prose-invert max-w-none"
                       }`}>
                         {msg.role === "user" ? msg.content : (
-                          <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                          <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeRaw, rehypeKatex]}>
                             {msg.content}
                           </ReactMarkdown>
                         )}

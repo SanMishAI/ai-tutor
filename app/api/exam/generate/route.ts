@@ -2,6 +2,39 @@ import Anthropic from '@anthropic-ai/sdk'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
+const RICH_CONTENT_RULES = `
+FORMATTING RULES — apply to every question, option, and explanation:
+
+MATH & SYMBOLS (use LaTeX for all mathematical notation):
+- Inline math: $x^2 + 3x - 10 = 0$
+- Display math: $$\\frac{a+b}{c} = d$$
+- Fractions: $\\frac{3}{4}$ — never write 3/4 in maths contexts
+- Square roots: $\\sqrt{x}$, cube roots: $\\sqrt[3]{8}$
+- Powers & subscripts: $x^{n}$, $a_{1}$
+- Greek letters: $\\alpha$, $\\beta$, $\\theta$, $\\pi$, $\\Delta$, $\\Sigma$, $\\mu$, $\\lambda$
+- Vectors: $\\vec{v}$, unit vectors: $\\hat{n}$
+- Angles: $\\angle ABC = 45^\\circ$
+- Scientific notation: $3.2 \\times 10^{-5}$
+- Chemistry: $\\text{H}_2\\text{O}$, $\\text{CO}_2$
+- Physics units: $9.8\\,\\text{m/s}^2$
+- Infinity: $\\infty$, therefore: $\\therefore$, approx: $\\approx$
+- Inequalities: $x \\leq 5$, $y \\geq -2$
+- Integral: $\\int_0^1 x^2\\,dx$, sum: $\\sum_{i=1}^{n} i$
+
+SVG DIAGRAMS — embed inline SVG for geometry, graphs, coordinate planes, number lines,
+shapes, or any visual content. Use single quotes in ALL SVG attributes to avoid JSON issues:
+- Opening tag: <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 200' width='300' height='200' style='display:block;margin:8px auto'>
+- Colours: stroke='#1e293b' fill='#1e293b' for all lines/text (dark, visible on white)
+- Filled shapes: fill='#e2e8f0' for light interior, fill='none' for outlines only
+- Lines: <line x1='50' y1='100' x2='250' y2='100' stroke='#1e293b' stroke-width='2'/>
+- Labels: <text x='150' y='30' font-family='sans-serif' font-size='13' fill='#1e293b' text-anchor='middle'>label</text>
+- Arrow marker: <defs><marker id='arr' markerWidth='8' markerHeight='8' refX='6' refY='3' orient='auto'><path d='M0,0 L0,6 L8,3 z' fill='#1e293b'/></marker></defs>
+- Right-angle box: <rect x='px' y='py' width='8' height='8' fill='none' stroke='#1e293b' stroke-width='1.5'/>
+- Dimension lines: dashed <line stroke-dasharray='4,3'/>
+- For IMAGE-BASED answer options: include SVG after the letter — "A. <svg ...>...</svg>"
+- GEOMETRY questions MUST include a diagram. Use SVG for any visual the student needs to see.
+`
+
 const EXAM_FORMATS: Record<string, string> = {
   "Australian Mathematics Competition (AMC)":
     "7 multiple choice questions with exactly 5 options each (A, B, C, D, E) and 3 open-ended short answer questions. Style: competition mathematics, ranging from straightforward to challenging.",
@@ -33,7 +66,7 @@ export async function POST(request: Request) {
 
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 4096,
+      max_tokens: 8000,
       messages: [{
         role: "user",
         content: `Generate exactly 10 exam questions for: ${subject}${yearLevel ? ` (${yearLevel})` : ""}
@@ -42,14 +75,16 @@ Format requirements: ${format}
 
 Difficulty and content must be appropriate for ${yearLevel ?? "the exam level"}.
 
+${RICH_CONTENT_RULES}
+
 Return ONLY valid JSON in this exact structure, no other text before or after:
 {
   "questions": [
     {
       "id": 1,
-      "text": "question text (use LaTeX for maths e.g. $x^2 + 3x = 10$)",
+      "text": "question text with LaTeX math and/or SVG diagram as needed",
       "type": "multiple_choice",
-      "options": ["A. option1", "B. option2", "C. option3", "D. option4"]
+      "options": ["A. option (may contain LaTeX or SVG)", "B. option2", "C. option3", "D. option4"]
     },
     {
       "id": 2,
@@ -59,7 +94,8 @@ Return ONLY valid JSON in this exact structure, no other text before or after:
   ]
 }
 
-Make questions varied in difficulty and accurate for ${subject}.`
+Actively USE diagrams and LaTeX notation throughout. For geometry include SVG diagrams.
+For any fractions, roots, powers, or symbols always use LaTeX.`
       }]
     })
 

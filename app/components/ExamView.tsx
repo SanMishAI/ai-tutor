@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkMath from "remark-math"
 import rehypeKatex from "rehype-katex"
+import rehypeRaw from "rehype-raw"
 import type { ExamQuestion, GradedResult } from "../types"
 
 type ExamState = "setup" | "generating" | "in_progress" | "submitting" | "results"
@@ -22,10 +23,14 @@ function formatTime(seconds: number) {
 
 function MD({ children }: { children: string }) {
   return (
-    <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+    <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeRaw, rehypeKatex]}>
       {children}
     </ReactMarkdown>
   )
+}
+
+function optionLetter(opt: string): string {
+  return opt.match(/^([A-E])\./)?.[1] ?? opt
 }
 
 interface ExamFinishPayload {
@@ -261,11 +266,11 @@ export default function ExamView({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="bg-red-50 dark:bg-red-950 rounded-xl p-3">
                   <p className="text-xs font-semibold text-red-600 dark:text-red-400 mb-1">Your answer ✗</p>
-                  <p className="text-sm text-gray-700 dark:text-gray-300">{answers[r.id] || "No answer"}</p>
+                  <div className="text-sm text-gray-700 dark:text-gray-300 prose prose-sm dark:prose-invert max-w-none [&_p]:m-0">{answers[r.id] || "No answer"}</div>
                 </div>
                 <div className="bg-green-50 dark:bg-green-950 rounded-xl p-3">
                   <p className="text-xs font-semibold text-green-600 dark:text-green-400 mb-1">Correct answer ✓</p>
-                  <p className="text-sm text-gray-700 dark:text-gray-300">{r.correctAnswer}</p>
+                  <div className="text-sm text-gray-700 dark:text-gray-300 prose prose-sm dark:prose-invert max-w-none [&_p]:m-0"><MD>{r.correctAnswer}</MD></div>
                 </div>
               </div>
               {reviewData[r.id] ? (
@@ -349,9 +354,10 @@ export default function ExamView({
                   <span className="font-semibold">Your answer:</span> {answers[r.id] || "No answer"}
                 </p>
                 {!r.correct && (
-                  <p className="text-xs mt-1 text-gray-600 dark:text-gray-400">
-                    <span className="font-semibold">Correct answer:</span> {r.correctAnswer}
-                  </p>
+                  <div className="text-xs mt-1 text-gray-600 dark:text-gray-400 flex gap-1 flex-wrap items-baseline">
+                    <span className="font-semibold shrink-0">Correct answer:</span>
+                    <span className="prose prose-xs dark:prose-invert max-w-none [&_p]:m-0 [&_p]:inline"><MD>{r.correctAnswer}</MD></span>
+                  </div>
                 )}
                 {!r.correct && (
                   <div className="text-xs mt-2 text-gray-500 dark:text-gray-400 prose prose-xs dark:prose-invert max-w-none">
@@ -451,23 +457,34 @@ export default function ExamView({
 
         {q.type === "multiple_choice" && q.options ? (
           <div className="space-y-2">
-            {q.options.map((opt, oi) => (
-              <label key={oi} className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
-                answers[q.id] === opt
-                  ? "bg-indigo-50 dark:bg-indigo-950 border-indigo-300 dark:border-indigo-700"
-                  : "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-800"
-              }`}>
-                <input
-                  type="radio"
-                  name={`q-${q.id}`}
-                  value={opt}
-                  checked={answers[q.id] === opt}
-                  onChange={() => setAnswers(prev => ({ ...prev, [q.id]: opt }))}
-                  className="mt-0.5 accent-indigo-600"
-                />
-                <span className="text-sm text-gray-800 dark:text-gray-200">{opt}</span>
-              </label>
-            ))}
+            {q.options.map((opt, oi) => {
+              const letter = optionLetter(opt)
+              const isSelected = answers[q.id] === letter
+              return (
+                <div
+                  key={oi}
+                  role="radio"
+                  aria-checked={isSelected}
+                  tabIndex={0}
+                  onClick={() => setAnswers(prev => ({ ...prev, [q.id]: letter }))}
+                  onKeyDown={(e) => (e.key === " " || e.key === "Enter") && setAnswers(prev => ({ ...prev, [q.id]: letter }))}
+                  className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors select-none ${
+                    isSelected
+                      ? "bg-indigo-50 dark:bg-indigo-950 border-indigo-300 dark:border-indigo-700"
+                      : "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-800"
+                  }`}
+                >
+                  <span className={`mt-1 w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${
+                    isSelected ? "border-indigo-600 dark:border-indigo-400 bg-indigo-600 dark:bg-indigo-400" : "border-gray-400 dark:border-gray-500"
+                  }`}>
+                    {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                  </span>
+                  <div className="text-sm text-gray-800 dark:text-gray-200 prose prose-sm dark:prose-invert max-w-none [&_p]:m-0 [&_svg]:max-w-full [&_img]:max-w-full overflow-x-auto flex-1 min-w-0">
+                    <MD>{opt}</MD>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         ) : (
           <textarea

@@ -4,6 +4,23 @@ const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 })
 
+const MATH_FORMAT_RULES = `
+FORMATTING RULES for all responses:
+- Use LaTeX for ALL mathematical notation — never plain text for maths
+- Inline math: $x^2 + 3x - 10 = 0$  |  Display: $$\\frac{a+b}{2}$$
+- Fractions: $\\frac{3}{4}$, roots: $\\sqrt{x}$, $\\sqrt[3]{8}$
+- Powers/subscripts: $x^{n}$, $a_{1}$
+- Greek: $\\alpha$, $\\beta$, $\\theta$, $\\pi$, $\\Delta$, $\\Sigma$, $\\mu$, $\\lambda$
+- Angles: $\\angle ABC = 45^\\circ$  |  Vectors: $\\vec{v}$, $\\hat{n}$
+- Scientific notation: $3.2 \\times 10^{-5}$
+- Chemistry: $\\text{H}_2\\text{O}$, $\\text{CO}_2$
+- Units: $9.8\\,\\text{m/s}^2$, $5\\,\\text{km}$
+- Infinity: $\\infty$, therefore: $\\therefore$, approx: $\\approx$
+- Inequalities: $x \\leq 5$, $y \\geq -2$
+- For geometry or any visual concept include an SVG diagram using single-quoted attributes:
+  <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 280 160' width='280' height='160' style='display:block;margin:8px auto'>
+  Use stroke='#1e293b' fill='#1e293b' for lines and text labels.`
+
 const SYSTEM_PROMPT = `You are a Socratic tutor helping students prepare for Australian competitions and exams: the Australian Mathematics Competition (AMC), Maths Olympiad, ACER exams, ICAS, and ATAR.
 
 Your teaching rules:
@@ -14,13 +31,15 @@ Your teaching rules:
 - Praise effort and correct partial thinking.
 - If a student gives a wrong answer, explain WHY it is wrong and guide them toward the right approach.
 - Keep explanations clear and appropriate for school students.
-- When a student asks about theory, explain it clearly with examples, then invite them to try a problem.`
+- When a student asks about theory, explain it clearly with examples, then invite them to try a problem.
+${MATH_FORMAT_RULES}`
 
 const PRACTICE_SYSTEM_PROMPT = `You are a Socratic tutor generating and guiding practice problems for Australian exam preparation (AMC, Maths Olympiad, ACER, ICAS, ATAR).
 
 When asked to generate a problem:
 - Create a well-structured, challenging problem appropriate for the specified exam
 - State the problem clearly with all necessary information
+- For geometry or visual problems, include an inline SVG diagram in the problem statement
 - Do NOT provide hints, working, or solutions — just the problem itself
 
 When the student attempts the problem:
@@ -30,7 +49,8 @@ When the student attempts the problem:
 - Explain conceptual errors clearly without giving away the answer
 - Only reveal the full solution when the student explicitly gives up
 
-Keep responses concise and encouraging.`
+Keep responses concise and encouraging.
+${MATH_FORMAT_RULES}`
 
 type Message = {
   role: 'user' | 'assistant'
@@ -49,7 +69,7 @@ export async function POST(request: Request) {
 
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 1024,
+      max_tokens: 2048,
       system: systemPrompt,
       messages: messages as Message[],
     })

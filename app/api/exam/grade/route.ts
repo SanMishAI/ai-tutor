@@ -3,6 +3,10 @@ import type { ExamQuestion } from '../../../types'
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
+function stripSvg(text: string): string {
+  return text.replace(/<svg[\s\S]*?<\/svg>/gi, "[diagram]")
+}
+
 function extractJson(text: string): unknown {
   try { return JSON.parse(text) } catch { /* continue */ }
   const block = text.match(/```(?:json)?\s*([\s\S]*?)```/)
@@ -18,9 +22,9 @@ export async function POST(request: Request) {
 
     const questionsWithAnswers = questions.map((q: ExamQuestion) => ({
       id: q.id,
-      text: q.text,
+      text: stripSvg(q.text),
       type: q.type,
-      options: q.options,
+      options: q.options?.map((o: string) => stripSvg(o)),
       studentAnswer: answers[q.id] || "No answer provided",
     }))
 
@@ -36,11 +40,16 @@ export async function POST(request: Request) {
     {
       "id": 1,
       "correct": true,
-      "correctAnswer": "the correct answer",
-      "explanation": "brief explanation of the correct approach (1-2 sentences)"
+      "correctAnswer": "letter only for MC (e.g. B), or the correct answer for open-ended. Use LaTeX for any math.",
+      "explanation": "1-2 sentence explanation using LaTeX for all maths e.g. Area $= \\frac{1}{2} \\times 6 \\times 4 = 12\\,\\text{cm}^2$"
     }
   ]
 }
+
+Notes:
+- Student answers are letter-only (A, B, C, D, E) for multiple choice. Match to the option with that letter.
+- Question text may reference [diagram] where an SVG diagram appeared — treat as a visual element.
+- Use LaTeX ($...$) for ALL mathematical expressions in correctAnswer and explanation.
 
 Questions and student answers:
 ${JSON.stringify(questionsWithAnswers, null, 2)}`
