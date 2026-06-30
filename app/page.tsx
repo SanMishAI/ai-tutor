@@ -636,7 +636,7 @@ export default function Home() {
         {/* ── EXAMS ── */}
         <div className="max-w-4xl mx-auto px-6 pb-12">
           <p className="text-xs font-semibold tracking-widest text-indigo-400 uppercase text-center mb-2">Coverage</p>
-          <h2 className="text-2xl sm:text-3xl font-black text-white text-center mb-2" style={{ fontFamily: '"Arial Black", Impact, system-ui' }}>6 Australian exams, one place</h2>
+          <h2 className="text-2xl sm:text-3xl font-black text-white text-center mb-2" style={{ fontFamily: '"Arial Black", Impact, system-ui' }}>8 Australian exams, one place</h2>
           <p className="text-slate-400 text-sm text-center mb-10">Questions, difficulty, and topics calibrated for each exam and year level.</p>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {([
