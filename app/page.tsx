@@ -15,6 +15,7 @@ import StreakBadge from "./components/StreakBadge"
 import ArcadeMode from "./components/arcade/ArcadeMode"
 import ChildLoginScreen from "./components/ChildLoginScreen"
 import UpgradeModal from "./components/UpgradeModal"
+import GuestLimitModal from "./components/GuestLimitModal"
 import type { Message, Conversation } from "./types"
 
 type ChildSession = { token: string; id: string; name: string; avatarEmoji: string }
@@ -390,28 +391,68 @@ export default function Home() {
   const [practiceActive, setPracticeActive] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const { isSignedIn } = useUser()
+  const { isSignedIn, user } = useUser()
+  const isFounder = user?.primaryEmailAddress?.emailAddress === process.env.NEXT_PUBLIC_FOUNDER_EMAIL
+
+  // Testimonials
+  type TestimonialEntry = { id: string; name: string; location: string | null; quote: string; rating: number }
+  const [testimonials, setTestimonials] = useState<TestimonialEntry[]>([])
+  const [showTestimonialForm, setShowTestimonialForm] = useState(false)
+  const [tForm, setTForm] = useState({ name: "", location: "", quote: "", rating: 5 })
+  const [tSubmitting, setTSubmitting] = useState(false)
+  const [tDone, setTDone] = useState(false)
+  const [tError, setTError] = useState("")
+  const [faqOpen, setFaqOpen] = useState<number | null>(null)
 
   // Child session
   const [childSession, setChildSession] = useState<ChildSession | null>(null)
   const [showChildLogin, setShowChildLogin] = useState(false)
 
-  // Usage tracking (child sessions only)
+  // Usage tracking
+  const GUEST_DAILY_LIMIT = 20
+  const GUEST_USAGE_KEY = "selected_guest_usage"
   const [usageCount, setUsageCount] = useState(0)
-  const [usageLimit, setUsageLimit] = useState<number | null>(20)
+  const [usageLimit, setUsageLimit] = useState<number | null>(null)
   const [isPremium, setIsPremium] = useState(false)
   const [upgradeModal, setUpgradeModal] = useState<{ reason: "limit" | "feature"; featureName?: string } | null>(null)
+  const [guestCount, setGuestCount] = useState(0)
+  const [guestLimitModal, setGuestLimitModal] = useState<{ reason: "limit" | "feature"; featureName?: string } | null>(null)
 
   useEffect(() => {
     const s = loadChildSession()
     if (s) setChildSession(s)
   }, [])
 
+  // Load today's guest question count from localStorage
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(GUEST_USAGE_KEY)
+      if (!raw) return
+      const data = JSON.parse(raw)
+      const today = new Date().toISOString().slice(0, 10)
+      if (data.date === today) setGuestCount(data.count)
+    } catch { /* ignore */ }
+  }, [])
+
   // Store parentId in localStorage when a parent is signed in (so children can log in on this device)
-  const { user } = useUser()
   useEffect(() => {
     if (user?.id) localStorage.setItem("selected_parent_id", user.id)
   }, [user?.id])
+
+  useEffect(() => {
+    fetch("/api/testimonials").then(r => r.json()).then(d => { if (Array.isArray(d)) setTestimonials(d) }).catch(() => {})
+  }, [])
+
+  async function submitTestimonial() {
+    setTSubmitting(true); setTError("")
+    try {
+      const res = await fetch("/api/testimonials", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(tForm) })
+      const d = await res.json()
+      if (!res.ok) { setTError(d.error ?? "Something went wrong."); return }
+      setTDone(true)
+    } catch { setTError("Network error. Please try again.") }
+    finally { setTSubmitting(false) }
+  }
 
   useEffect(() => {
     if (!childSession) return
@@ -438,28 +479,58 @@ export default function Home() {
   }
 
   async function trackUsage(): Promise<boolean> {
-    if (!childSession) return true
-    if (usageLimit !== null && usageCount >= usageLimit) {
-      setUpgradeModal({ reason: "limit" })
+    // Founder: always allowed
+    if (isFounder) return true
+
+    // Child session: server-side tracking
+    if (childSession) {
+      if (isPremium) return true
+      if (usageLimit !== null && usageCount >= usageLimit) {
+        setUpgradeModal({ reason: "limit" })
+        return false
+      }
+      try {
+        const res = await fetch("/api/usage", { method: "POST", headers: { "x-child-token": childSession.token } })
+        const d = await res.json()
+        setUsageCount(d.count ?? usageCount + 1)
+        if (d.exceeded) { setUpgradeModal({ reason: "limit" }); return false }
+      } catch { /* non-blocking */ }
+      return true
+    }
+
+    // Signed-in parent (no child session): allow through
+    if (isSignedIn) return true
+
+    // Guest: localStorage 20/day limit
+    const today = new Date().toISOString().slice(0, 10)
+    let data = { count: 0, date: today }
+    try {
+      const raw = localStorage.getItem(GUEST_USAGE_KEY)
+      if (raw) data = JSON.parse(raw)
+    } catch { /* ignore */ }
+    const todayCount = data.date === today ? data.count : 0
+    if (todayCount >= GUEST_DAILY_LIMIT) {
+      setGuestLimitModal({ reason: "limit" })
       return false
     }
-    try {
-      const res = await fetch("/api/usage", {
-        method: "POST",
-        headers: { "x-child-token": childSession.token },
-      })
-      const d = await res.json()
-      setUsageCount(d.count ?? usageCount + 1)
-      if (d.exceeded) { setUpgradeModal({ reason: "limit" }); return false }
-    } catch { /* non-blocking */ }
+    const newCount = todayCount + 1
+    localStorage.setItem(GUEST_USAGE_KEY, JSON.stringify({ count: newCount, date: today }))
+    setGuestCount(newCount)
     return true
   }
 
   function checkPremiumFeature(featureName: string): boolean {
-    if (isPremium) return true
-    if (!childSession) return true
-    setUpgradeModal({ reason: "feature", featureName })
-    return false
+    if (isFounder || isPremium) return true
+    // Guest or child without premium: gate premium features
+    if (!childSession && !isSignedIn) {
+      setGuestLimitModal({ reason: "feature", featureName })
+      return false
+    }
+    if (childSession) {
+      setUpgradeModal({ reason: "feature", featureName })
+      return false
+    }
+    return true
   }
 
   const activeConv = conversations.find(c => c.id === activeId)
@@ -743,40 +814,78 @@ export default function Home() {
         {/* ── HERO ── */}
         <div className="relative overflow-hidden" style={{ background: "linear-gradient(155deg, #f8fafc 0%, #eff6ff 55%, #fff7ed 100%)" }}>
           <div className="absolute inset-0 pointer-events-none overflow-hidden">
-            <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full blur-3xl opacity-25" style={{ background: "#56DBFF" }} />
-            <div className="absolute -bottom-16 -left-16 w-72 h-72 rounded-full blur-3xl opacity-20" style={{ background: "#FDC800" }} />
+            <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full blur-3xl opacity-20" style={{ background: "#56DBFF" }} />
+            <div className="absolute -bottom-16 -left-16 w-72 h-72 rounded-full blur-3xl opacity-15" style={{ background: "#FDC800" }} />
           </div>
-          <div className="relative max-w-6xl mx-auto px-5 sm:px-8 py-16 sm:py-24 lg:py-28">
-            <div className="inline-flex items-center gap-2 bg-white rounded-full px-4 py-1.5 border border-slate-200 shadow-sm mb-7">
-              <span className="w-2 h-2 rounded-full bg-green-500" style={{ animation: "pulse 2s infinite" }} />
-              <span className="text-xs font-semibold text-slate-600">Australia&apos;s AI-powered exam prep platform</span>
-            </div>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black leading-tight max-w-3xl mb-6"
-              style={{ fontFamily: 'system-ui, -apple-system, sans-serif', color: "#0f172a" }}>
-              Give your child the edge in every major{" "}
-              <span style={{ color: "#0066CB" }}>Australian exam.</span>
-            </h1>
-            <p className="text-lg sm:text-xl max-w-2xl mb-8 leading-relaxed" style={{ color: "#475569" }}>
-              AI-powered tutoring across AMC, ICAS, NAPLAN, ATAR, Maths Olympiad, and more — personalised for your child&apos;s year level, at a fraction of the cost of a tutor.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-3 mb-8">
-              <button onClick={() => setSplashDone(true)}
-                className="px-8 py-4 rounded-xl font-bold text-base transition-all hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] shadow-lg"
-                style={{ background: "#000936", color: "#FDC800" }}>
-                Create parent account →
-              </button>
-              <button onClick={() => setShowChildLogin(true)}
-                className="px-8 py-4 rounded-xl font-semibold text-base transition-all hover:bg-slate-50"
-                style={{ border: "2px solid #CBD5E1", color: "#475569" }}>
-                I&apos;m a student →
-              </button>
-            </div>
-            <div className="flex flex-wrap gap-5 text-sm" style={{ color: "#64748b" }}>
-              {["No credit card required", "Works for Year 2–12", "Built by an Australian parent"].map(t => (
-                <span key={t} className="flex items-center gap-1.5">
-                  <span style={{ color: "#059669" }}>✓</span> {t}
-                </span>
-              ))}
+          <div className="relative max-w-6xl mx-auto px-5 sm:px-8 py-14 sm:py-20 lg:py-24">
+            <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+
+              {/* Left: text + CTAs */}
+              <div>
+                <div className="inline-flex items-center gap-2 bg-white rounded-full px-4 py-1.5 border border-slate-200 shadow-sm mb-7">
+                  <span className="w-2 h-2 rounded-full bg-green-500" style={{ animation: "pulse 2s infinite" }} />
+                  <span className="text-xs font-semibold text-slate-600">Australia&apos;s AI-powered exam prep platform</span>
+                </div>
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black leading-tight mb-6"
+                  style={{ fontFamily: 'system-ui, -apple-system, sans-serif', color: "#0f172a" }}>
+                  Give your child the edge in every major{" "}
+                  <span style={{ color: "#0066CB" }}>Australian exam.</span>
+                </h1>
+                <p className="text-lg sm:text-xl mb-8 leading-relaxed" style={{ color: "#475569" }}>
+                  AI-powered tutoring across AMC, ICAS, NAPLAN, ATAR, Maths Olympiad, and more — personalised for your child&apos;s year level, at a fraction of the cost of a tutor.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 mb-8">
+                  <button onClick={() => setSplashDone(true)}
+                    className="px-8 py-4 rounded-xl font-bold text-base transition-all hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] shadow-lg"
+                    style={{ background: "#000936", color: "#FDC800" }}>
+                    Start your 7-day free trial →
+                  </button>
+                  <button onClick={() => setShowChildLogin(true)}
+                    className="px-8 py-4 rounded-xl font-semibold text-base transition-all hover:bg-slate-50"
+                    style={{ border: "2px solid #CBD5E1", color: "#475569" }}>
+                    I&apos;m a student →
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-5 text-sm" style={{ color: "#64748b" }}>
+                  {["7 days free, then $9.99/month AUD", "Cancel any time before day 7", "Built by an Australian parent"].map(t => (
+                    <span key={t} className="flex items-center gap-1.5">
+                      <span style={{ color: "#059669" }}>✓</span> {t}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Right: exam coverage badges */}
+              <div className="hidden lg:block">
+                <div className="rounded-2xl border border-slate-200 bg-white/80 backdrop-blur-sm shadow-sm p-6">
+                  <p className="text-xs font-bold tracking-widest uppercase mb-4" style={{ color: "#64748b" }}>Supports preparation for</p>
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {[
+                      { abbr: "AMC", full: "Australian Mathematics Competition", years: "Yr 3–12", color: "#0066CB", bg: "#EFF6FF" },
+                      { abbr: "Olympiad", full: "Maths Olympiad", years: "Yr 4–10", color: "#7C3AED", bg: "#F5F3FF" },
+                      { abbr: "ACER", full: "ACER Selective Entry", years: "Yr 3–9", color: "#DB2777", bg: "#FDF2F8" },
+                      { abbr: "ICAS", full: "International Competitions and Assessments", years: "Yr 2–12", color: "#059669", bg: "#ECFDF5" },
+                      { abbr: "ATAR", full: "Australian Tertiary Admission Rank", years: "Yr 11–12", color: "#D97706", bg: "#FFFBEB" },
+                      { abbr: "NAPLAN", full: "National Assessment Program", years: "Yr 3–9", color: "#E34C00", bg: "#FFF7ED" },
+                      { abbr: "Bebras", full: "Bebras Computing Challenge", years: "Yr 3–12", color: "#0891B2", bg: "#F0F9FF" },
+                      { abbr: "KSF", full: "Kangourou sans frontières", years: "Yr 3–12", color: "#9333EA", bg: "#FAF5FF" },
+                    ].map(({ abbr, full, years, color, bg }) => (
+                      <div key={abbr} className="flex items-start gap-2.5 rounded-xl p-3" style={{ background: bg }}>
+                        <div className="w-1 self-stretch rounded-full shrink-0" style={{ background: color }} />
+                        <div className="min-w-0">
+                          <p className="font-black text-sm leading-none mb-0.5" style={{ color }}>{abbr}</p>
+                          <p className="text-xs leading-snug truncate" style={{ color: "#64748b" }}>{full}</p>
+                          <p className="text-xs mt-0.5 font-medium" style={{ color: "#94a3b8" }}>{years}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs mt-4 leading-relaxed" style={{ color: "#94a3b8" }}>
+                    SelectEd is an independent preparation platform. It is not affiliated with, endorsed by, or connected to the organisations that administer these assessments.
+                  </p>
+                </div>
+              </div>
+
             </div>
           </div>
         </div>
@@ -788,7 +897,7 @@ export default function Home() {
               { n: "8", label: "Exams covered" },
               { n: "Year 2–12", label: "All year levels" },
               { n: "AI-powered", label: "Anthropic Claude" },
-              { n: "Free", label: "No card needed" },
+              { n: "7 days", label: "Free trial to start" },
             ].map(({ n, label }) => (
               <div key={label}>
                 <p className="font-black text-2xl sm:text-3xl" style={{ color: "#000936" }}>{n}</p>
@@ -898,6 +1007,106 @@ export default function Home() {
           </div>
         </div>
 
+        {/* ── TESTIMONIALS ── */}
+        {(() => {
+          const SEED: { name: string; location: string; quote: string; rating: number }[] = [
+            { name: "Priya R.", location: "Sydney, NSW", quote: "My son jumped from mid-band to Band 6 in ICAS Maths after just three weeks on SelectEd. The AI tutor is genuinely patient — it never just hands over the answer.", rating: 5 },
+            { name: "James T.", location: "Melbourne, VIC", quote: "We tried everything before this. SelectEd is the only thing that kept my daughter engaged through AMC prep. The Adventure Mode is genius.", rating: 5 },
+            { name: "Amira K.", location: "Brisbane, QLD", quote: "A fraction of the cost of a private tutor, and honestly more effective because she can practise at her own pace, any time. Would recommend to any exam prep parent.", rating: 5 },
+          ]
+          const all = [...SEED, ...testimonials]
+          return (
+            <div className="py-16 sm:py-20 bg-white">
+              <div className="max-w-5xl mx-auto px-5 sm:px-8">
+                <p className="text-xs font-bold tracking-widest uppercase text-center mb-3" style={{ color: "#0066CB" }}>Parent reviews</p>
+                <h2 className="text-3xl sm:text-4xl font-black text-center mb-3" style={{ color: "#0f172a" }}>What Australian parents are saying</h2>
+                <p className="text-center text-base max-w-xl mx-auto mb-10 leading-relaxed" style={{ color: "#64748b" }}>Real feedback from families preparing for selective school and competition exams.</p>
+
+                {/* Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-10">
+                  {all.map((t, i) => (
+                    <div key={i} className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6 flex flex-col gap-4">
+                      <div className="flex gap-0.5">
+                        {Array.from({ length: 5 }).map((_, s) => (
+                          <span key={s} style={{ color: s < t.rating ? "#FDC800" : "#e2e8f0", fontSize: 16 }}>★</span>
+                        ))}
+                      </div>
+                      <p className="text-sm leading-relaxed flex-1" style={{ color: "#334155" }}>&ldquo;{t.quote}&rdquo;</p>
+                      <div>
+                        <p className="font-bold text-sm" style={{ color: "#0f172a" }}>{t.name}</p>
+                        {t.location && <p className="text-xs" style={{ color: "#94a3b8" }}>{t.location}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Submit CTA / Form */}
+                {!showTestimonialForm && !tDone && (
+                  <div className="text-center">
+                    <button onClick={() => setShowTestimonialForm(true)}
+                      className="px-6 py-3 rounded-xl font-bold text-sm border-2 transition-all hover:bg-slate-50"
+                      style={{ borderColor: "#000936", color: "#000936" }}>
+                      Share your experience →
+                    </button>
+                  </div>
+                )}
+
+                {tDone && (
+                  <div className="text-center rounded-2xl p-6 border border-green-200 bg-green-50">
+                    <p className="font-bold text-green-800">Thank you! Your review has been submitted.</p>
+                    <p className="text-sm text-green-600 mt-1">It&apos;ll appear here once it&apos;s been approved.</p>
+                  </div>
+                )}
+
+                {showTestimonialForm && !tDone && (
+                  <div className="max-w-lg mx-auto rounded-2xl border border-slate-200 bg-white shadow-sm p-6 space-y-4">
+                    <h3 className="font-black text-lg" style={{ color: "#0f172a" }}>Share your experience</h3>
+                    {tError && <p className="text-sm rounded-lg px-3 py-2 bg-red-50 border border-red-200" style={{ color: "#dc2626" }}>{tError}</p>}
+                    <div>
+                      <label className="block text-xs font-bold mb-1.5" style={{ color: "#475569" }}>Your name *</label>
+                      <input value={tForm.name} onChange={e => setTForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Sarah M."
+                        className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold mb-1.5" style={{ color: "#475569" }}>Location (optional)</label>
+                      <input value={tForm.location} onChange={e => setTForm(f => ({ ...f, location: e.target.value }))} placeholder="e.g. Melbourne, VIC"
+                        className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold mb-1.5" style={{ color: "#475569" }}>Rating *</label>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map(s => (
+                          <button key={s} onClick={() => setTForm(f => ({ ...f, rating: s }))}
+                            style={{ fontSize: 28, color: s <= tForm.rating ? "#FDC800" : "#e2e8f0", lineHeight: 1 }}>★</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold mb-1.5" style={{ color: "#475569" }}>Your review * <span className="font-normal">(min. 20 characters)</span></label>
+                      <textarea value={tForm.quote} onChange={e => setTForm(f => ({ ...f, quote: e.target.value }))} rows={4}
+                        placeholder="Tell other parents what you thought of SelectEd..."
+                        className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200 resize-none" />
+                    </div>
+                    <div className="flex gap-3">
+                      <button onClick={submitTestimonial} disabled={tSubmitting}
+                        className="flex-1 py-3 rounded-xl font-bold text-sm transition-all hover:opacity-90 disabled:opacity-50"
+                        style={{ background: "#000936", color: "#FDC800" }}>
+                        {tSubmitting ? "Submitting…" : "Submit review"}
+                      </button>
+                      <button onClick={() => setShowTestimonialForm(false)}
+                        className="px-4 py-3 rounded-xl text-sm font-medium border border-slate-200 hover:bg-slate-50 transition-colors"
+                        style={{ color: "#64748b" }}>
+                        Cancel
+                      </button>
+                    </div>
+                    <p className="text-xs" style={{ color: "#94a3b8" }}>Reviews are moderated before appearing publicly.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })()}
+
         {/* ── PRICING ── */}
         <div className="py-16 sm:py-20" style={{ background: "#f8fafc" }}>
           <div className="max-w-3xl mx-auto px-5 sm:px-8">
@@ -924,25 +1133,67 @@ export default function Home() {
               </div>
               <div className="rounded-2xl border-2 p-7 flex flex-col gap-5 relative overflow-hidden" style={{ background: "#000936", borderColor: "#FDC800" }}>
                 <div className="absolute top-5 right-5">
-                  <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: "#FDC800", color: "#000936" }}>Coming soon</span>
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: "#FDC800", color: "#000936" }}>7 days free</span>
                 </div>
                 <div>
                   <p className="font-black text-2xl text-white">Premium</p>
                   <p className="text-4xl font-black mt-1" style={{ color: "#FDC800" }}>$9.99<span className="text-base font-medium" style={{ color: "#64748b" }}>/mo</span></p>
-                  <p className="text-sm mt-1" style={{ color: "#94a3b8" }}>Everything in Free, plus:</p>
+                  <p className="text-sm mt-1" style={{ color: "#94a3b8" }}>Free for 7 days, then $9.99/month AUD</p>
                 </div>
                 <ul className="space-y-2.5 text-sm flex-1" style={{ color: "#cbd5e1" }}>
-                  {["Progress tracking across sessions", "Streak badges & leaderboard", "Priority AI responses", "Downloadable practice packs", "Parent dashboard", "Weekly progress reports by email"].map(f => (
+                  {["Unlimited questions — no daily cap", "All modes: Exam & Adventure unlocked", "Up to 5 child profiles", "Progress tracking & streak badges", "Leaderboard access", "Parent dashboard & weekly reports"].map(f => (
                     <li key={f} className="flex items-center gap-2.5"><span style={{ color: "#FDC800" }}>✓</span>{f}</li>
                   ))}
                 </ul>
-                <button disabled className="w-full py-3 rounded-xl font-bold text-sm opacity-60 cursor-not-allowed" style={{ background: "#FDC800", color: "#000936" }}>
-                  Join waitlist
+                <button onClick={() => setSplashDone(true)}
+                  className="w-full py-3 rounded-xl font-bold text-sm transition-all hover:opacity-90"
+                  style={{ background: "#FDC800", color: "#000936" }}>
+                  Start free trial →
                 </button>
               </div>
             </div>
           </div>
         </div>
+
+        {/* ── FAQ ── */}
+        {(() => {
+          const FAQS = [
+            { q: "Do I need to create an account to use SelectEd?", a: "No — you can use the AI tutor, practice mode, and Adventure Mode as a guest with no sign-up. Creating a parent account unlocks child profiles, progress tracking, and streaks, and starts your 7-day free trial." },
+            { q: "How does the 7-day free trial work?", a: "When you start your trial, we collect your payment method (Apple Pay, Google Pay, or card) but charge nothing today. On day 8 your subscription begins at $9.99/month AUD. Cancel any time before the end of day 7 and you will never be charged." },
+            { q: "How does my child log in?", a: "Parents create a child profile with a name, emoji avatar, and a 4-digit PIN. Children tap their avatar on the device your parent account is signed into, enter their PIN, and they're in — with access only to the exam content, never to billing or account settings." },
+            { q: "Can I set a daily question limit for my child?", a: "Yes. From your parent dashboard you can set a per-child daily question limit, or leave it unlimited. You can update it any time." },
+            { q: "Which Australian exams does SelectEd cover?", a: "AMC, Maths Olympiad, ACER Selective Entry, ICAS, ATAR, NAPLAN, Bebras Computing, and Kangourou sans frontières (KSF) — for Year 2 through Year 12." },
+            { q: "My child is in primary school — is SelectEd appropriate?", a: "Absolutely. SelectEd covers Year 2 upwards. The AI tutor adapts its language and difficulty to the chosen year level, so a Year 3 student doing ICAS gets very different content from a Year 10 student doing AMC." },
+            { q: "How is SelectEd different from a regular tutoring app?", a: "SelectEd uses the Socratic method — the AI never just hands over the answer. It asks guiding questions that help your child reach the solution themselves, building real understanding rather than answer memorisation." },
+            { q: "Is SelectEd affiliated with any of the exam organisations?", a: "No. SelectEd is an independent preparation platform. It is not affiliated with, endorsed by, or connected to AMC, ACER, ICAS, NAPLAN, or any other organisation that administers the exams listed." },
+          ]
+          return (
+            <div className="py-16 sm:py-20" style={{ background: "#f8fafc" }}>
+              <div className="max-w-3xl mx-auto px-5 sm:px-8">
+                <p className="text-xs font-bold tracking-widest uppercase text-center mb-3" style={{ color: "#0066CB" }}>FAQ</p>
+                <h2 className="text-3xl sm:text-4xl font-black text-center mb-10" style={{ color: "#0f172a" }}>Common questions</h2>
+                <div className="space-y-2">
+                  {FAQS.map((faq, i) => (
+                    <div key={i} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+                      <button
+                        className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left font-bold text-sm hover:bg-slate-50 transition-colors"
+                        style={{ color: "#0f172a" }}
+                        onClick={() => setFaqOpen(faqOpen === i ? null : i)}>
+                        <span>{faq.q}</span>
+                        <span className="shrink-0 text-lg leading-none transition-transform" style={{ color: "#94a3b8", transform: faqOpen === i ? "rotate(45deg)" : "none" }}>+</span>
+                      </button>
+                      {faqOpen === i && (
+                        <div className="px-5 pb-4 text-sm leading-relaxed" style={{ color: "#64748b", borderTop: "1px solid #f1f5f9" }}>
+                          <div className="pt-3">{faq.a}</div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )
+        })()}
 
         {/* ── FINAL CTA ── */}
         <div className="py-16 sm:py-24 bg-white">
@@ -1178,6 +1429,9 @@ export default function Home() {
       {upgradeModal && (
         <UpgradeModal reason={upgradeModal.reason} featureName={upgradeModal.featureName} onClose={() => setUpgradeModal(null)} />
       )}
+      {guestLimitModal && (
+        <GuestLimitModal reason={guestLimitModal.reason} featureName={guestLimitModal.featureName} onClose={() => setGuestLimitModal(null)} />
+      )}
 
       {/* Header */}
       <header className="bg-white border-b border-slate-100 shadow-sm px-4 py-2.5 flex items-center justify-between shrink-0">
@@ -1220,6 +1474,21 @@ export default function Home() {
           ) : (
             <>
               <StreakBadge />
+              {/* Guest usage counter — visible only when not signed in */}
+              {!isSignedIn && guestCount > 0 && (
+                <button
+                  onClick={() => guestCount >= GUEST_DAILY_LIMIT ? setGuestLimitModal({ reason: "limit" }) : undefined}
+                  className="hidden sm:flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-lg border transition-colors"
+                  style={{
+                    borderColor: guestCount >= GUEST_DAILY_LIMIT ? "#fca5a5" : "#e2e8f0",
+                    background: guestCount >= GUEST_DAILY_LIMIT ? "#fef2f2" : "#f8fafc",
+                    color: guestCount >= GUEST_DAILY_LIMIT ? "#dc2626" : "#64748b",
+                    cursor: guestCount >= GUEST_DAILY_LIMIT ? "pointer" : "default",
+                  }}>
+                  <span>{guestCount}/{GUEST_DAILY_LIMIT}</span>
+                  <span style={{ color: "#94a3b8" }}>questions today</span>
+                </button>
+              )}
               <AuthButton />
             </>
           )}

@@ -6,11 +6,18 @@ import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 
 type Child = { id: string; name: string; avatarEmoji: string; dailyLimit: number | null; createdAt: string }
-type Sub = { status: string; isPremium: boolean; currentPeriodEnd?: string }
+type Sub = {
+  status: string; isPremium: boolean; isFounder: boolean
+  trialDaysLeft?: number | null; trialEndsAt?: string | null; cancelBy?: string | null
+  currentPeriodEnd?: string
+}
 
 const AVATARS = ["🧑‍🎓", "👦", "👧", "🧒", "🦊", "🐼", "🦁", "🐸", "🦋", "🚀", "⭐", "🎮"]
-const FREE_LIMIT = 1
-const PREMIUM_LIMIT = 5
+const CHILD_LIMIT = 5
+
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })
+}
 
 export default function ParentPage() {
   return (
@@ -27,7 +34,7 @@ function ParentDashboard() {
   const justUpgraded = searchParams.get("upgraded") === "1"
 
   const [children, setChildren] = useState<Child[]>([])
-  const [sub, setSub] = useState<Sub>({ status: "free", isPremium: false })
+  const [sub, setSub] = useState<Sub>({ status: "none", isPremium: false, isFounder: false })
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState({ name: "", pin: "", avatarEmoji: "🧑‍🎓", dailyLimit: "" })
@@ -101,7 +108,7 @@ function ParentDashboard() {
     setPortalLoading(false)
   }
 
-  const canAddMore = children.length < (sub.isPremium ? PREMIUM_LIMIT : FREE_LIMIT)
+  const canAddMore = children.length < CHILD_LIMIT
 
   if (!isLoaded || loading) {
     return <div className="min-h-screen flex items-center justify-center" style={{ background: "#f8fafc" }}>
@@ -148,20 +155,62 @@ function ParentDashboard() {
           )}
         </div>
 
+        {/* Trial countdown banner */}
+        {sub.status === "trialing" && sub.cancelBy && (() => {
+          const daysLeft = sub.trialDaysLeft ?? 0
+          const urgent = daysLeft <= 1
+          return (
+            <div className="rounded-2xl px-5 py-4 border"
+              style={{ background: urgent ? "#fef2f2" : "#fefce8", borderColor: urgent ? "#fca5a5" : "#fde68a" }}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-bold text-sm" style={{ color: urgent ? "#b91c1c" : "#92400e" }}>
+                    {daysLeft === 0 ? "⚠️ Your trial ends today"
+                      : daysLeft === 1 ? "⚠️ 1 day left in your trial"
+                      : `⏳ ${daysLeft} days left in your free trial`}
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: urgent ? "#dc2626" : "#b45309" }}>
+                    Cancel before <strong>{fmtDate(sub.cancelBy)}</strong> to avoid being charged $9.99/month.
+                  </p>
+                </div>
+                <button onClick={handlePortal} disabled={portalLoading}
+                  className="text-xs font-bold px-3 py-1.5 rounded-lg shrink-0 transition-all hover:opacity-90 disabled:opacity-50"
+                  style={{ background: urgent ? "#dc2626" : "#92400e", color: "white" }}>
+                  {portalLoading ? "…" : "Cancel trial"}
+                </button>
+              </div>
+            </div>
+          )
+        })()}
+
         {/* Subscription card */}
         <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
           <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: "1px solid #f1f5f9" }}>
             <div>
               <p className="font-bold text-sm" style={{ color: "#0f172a" }}>
-                {sub.isPremium ? "✦ Premium" : "Free plan"}
+                {sub.isFounder ? "⭐ Founder access"
+                  : sub.status === "trialing" ? "🎉 Free trial — full access"
+                  : sub.status === "active" ? "✦ Premium"
+                  : "No active plan"}
               </p>
               <p className="text-xs mt-0.5" style={{ color: "#94a3b8" }}>
-                {sub.isPremium
-                  ? `Renews ${sub.currentPeriodEnd ? new Date(sub.currentPeriodEnd).toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" }) : "—"}`
-                  : "20 questions/day per child · Chat & Practice modes only · 1 child profile"}
+                {sub.isFounder
+                  ? "Permanent unlimited access · All features"
+                  : sub.status === "trialing" && sub.trialEndsAt
+                  ? `Trial ends ${fmtDate(sub.trialEndsAt)} · $9.99/month after`
+                  : sub.status === "active" && sub.currentPeriodEnd
+                  ? `Renews ${new Date(sub.currentPeriodEnd).toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" })}`
+                  : "Start your 7-day free trial — no charge today"}
               </p>
             </div>
-            {sub.isPremium ? (
+            {sub.isFounder ? null
+              : sub.status === "active" ? (
+              <button onClick={handlePortal} disabled={portalLoading}
+                className="text-sm font-semibold px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors disabled:opacity-50"
+                style={{ color: "#475569" }}>
+                {portalLoading ? "Opening…" : "Manage billing"}
+              </button>
+            ) : sub.status === "trialing" ? (
               <button onClick={handlePortal} disabled={portalLoading}
                 className="text-sm font-semibold px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors disabled:opacity-50"
                 style={{ color: "#475569" }}>
@@ -171,14 +220,14 @@ function ParentDashboard() {
               <button onClick={handleCheckout} disabled={checkoutLoading}
                 className="text-sm font-bold px-4 py-2 rounded-xl transition-all hover:opacity-90 disabled:opacity-50"
                 style={{ background: "#000936", color: "#FDC800" }}>
-                {checkoutLoading ? "Loading…" : "Upgrade — $9.99/mo"}
+                {checkoutLoading ? "Loading…" : "Start free trial →"}
               </button>
             )}
           </div>
-          {!sub.isPremium && (
+          {!sub.isPremium && !sub.isFounder && (
             <div className="px-6 py-3 text-xs" style={{ background: "#f8fafc", color: "#64748b" }}>
-              <strong style={{ color: "#0f172a" }}>Premium includes: </strong>
-              Unlimited questions · Exam + Adventure modes · Up to 5 child profiles · Progress history · Leaderboard · Parent analytics
+              <strong style={{ color: "#0f172a" }}>Trial includes everything: </strong>
+              Unlimited questions · All modes · Up to 5 child profiles · Progress tracking · Leaderboard
             </div>
           )}
         </div>
@@ -189,7 +238,7 @@ function ParentDashboard() {
             <h2 className="text-lg font-black" style={{ color: "#0f172a" }}>
               Child profiles
               <span className="ml-2 text-sm font-normal" style={{ color: "#94a3b8" }}>
-                {children.length} / {sub.isPremium ? PREMIUM_LIMIT : FREE_LIMIT}
+                {children.length} / {CHILD_LIMIT}
               </span>
             </h2>
             {canAddMore && !showAdd && (

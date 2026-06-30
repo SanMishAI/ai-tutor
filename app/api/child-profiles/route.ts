@@ -2,8 +2,9 @@ import { auth } from "@clerk/nextjs/server"
 import { NextResponse } from "next/server"
 import { db } from "@/lib/db"
 import bcrypt from "bcryptjs"
+import { isFounderUser } from "@/lib/founder"
 
-const FREE_CHILD_LIMIT = 1
+const FREE_CHILD_LIMIT = 5   // all plans get 5 now (trial = full access)
 const PREMIUM_CHILD_LIMIT = 5
 
 export async function GET() {
@@ -26,16 +27,14 @@ export async function POST(req: Request) {
   if (!name || !pin || pin.length < 4)
     return NextResponse.json({ error: "Name and a 4+ digit PIN are required." }, { status: 400 })
 
+  const founder = await isFounderUser()
   const sub = await db.subscription.findUnique({ where: { parentId: userId } })
-  const isPremium = sub?.status === "active"
+  const isPremium = founder || sub?.status === "active" || sub?.status === "trialing"
   const limit = isPremium ? PREMIUM_CHILD_LIMIT : FREE_CHILD_LIMIT
   const existing = await db.childProfile.count({ where: { parentId: userId } })
   if (existing >= limit)
     return NextResponse.json({
-      error: isPremium
-        ? `Premium accounts can have up to ${limit} child profiles.`
-        : "Free accounts support 1 child profile. Upgrade to Premium for up to 5.",
-      upgradeRequired: !isPremium,
+      error: `You can have up to ${limit} child profiles on your plan.`,
     }, { status: 403 })
 
   const pinHash = await bcrypt.hash(pin, 10)

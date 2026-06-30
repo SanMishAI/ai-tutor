@@ -3,7 +3,7 @@ import { db } from "@/lib/db"
 import { jwtVerify } from "jose"
 
 const secret = new TextEncoder().encode(process.env.CHILD_JWT_SECRET ?? "fallback-secret")
-const FREE_DAILY_LIMIT = 20
+const TRIAL_DAILY_LIMIT = 5   // preview limit for non-trial, non-premium (guests who somehow reach app)
 
 function today() {
   return new Date().toISOString().slice(0, 10)
@@ -20,7 +20,6 @@ async function getChildId(req: Request): Promise<string | null> {
   }
 }
 
-// GET — return today's usage count and limit for the child
 export async function GET(req: Request) {
   const childId = await getChildId(req)
   if (!childId) return NextResponse.json({ error: "No child session" }, { status: 401 })
@@ -28,20 +27,16 @@ export async function GET(req: Request) {
   const profile = await db.childProfile.findUnique({ where: { id: childId } })
   if (!profile) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
-  // Check if parent is premium
   const sub = await db.subscription.findUnique({ where: { parentId: profile.parentId } })
-  const isPremium = sub?.status === "active"
+  const isPremium = sub?.status === "active" || sub?.status === "trialing" || sub?.status === "founder"
 
   const usage = await db.dailyUsage.findUnique({ where: { childId_date: { childId, date: today() } } })
   const count = usage?.count ?? 0
-
-  // Per-child limit overrides free limit; premium = no limit (unless parent set one)
-  const limit = profile.dailyLimit ?? (isPremium ? null : FREE_DAILY_LIMIT)
+  const limit = isPremium ? (profile.dailyLimit ?? null) : TRIAL_DAILY_LIMIT
 
   return NextResponse.json({ count, limit, isPremium })
 }
 
-// POST — increment usage count by 1; returns { ok, count, limit, exceeded }
 export async function POST(req: Request) {
   const childId = await getChildId(req)
   if (!childId) return NextResponse.json({ error: "No child session" }, { status: 401 })
@@ -50,8 +45,8 @@ export async function POST(req: Request) {
   if (!profile) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
   const sub = await db.subscription.findUnique({ where: { parentId: profile.parentId } })
-  const isPremium = sub?.status === "active"
-  const limit = profile.dailyLimit ?? (isPremium ? null : FREE_DAILY_LIMIT)
+  const isPremium = sub?.status === "active" || sub?.status === "trialing" || sub?.status === "founder"
+  const limit = isPremium ? (profile.dailyLimit ?? null) : TRIAL_DAILY_LIMIT
 
   const d = today()
   const usage = await db.dailyUsage.upsert({

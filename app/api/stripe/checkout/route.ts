@@ -19,16 +19,15 @@ export async function POST() {
     return NextResponse.json({ error: "Payments not yet configured. Please try again soon." }, { status: 503 })
   }
 
-  // Get or create Stripe customer
   let sub = await db.subscription.findUnique({ where: { parentId: userId } })
   let customerId = sub?.stripeCustomerId
 
   if (!customerId) {
     const customer = await stripe.customers.create({ metadata: { parentId: userId } })
     customerId = customer.id
-    sub = await db.subscription.upsert({
+    await db.subscription.upsert({
       where: { parentId: userId },
-      create: { parentId: userId, stripeCustomerId: customerId, status: "free" },
+      create: { parentId: userId, stripeCustomerId: customerId, status: "none" },
       update: { stripeCustomerId: customerId },
     })
   }
@@ -39,18 +38,33 @@ export async function POST() {
     customer: customerId,
     mode: "subscription",
     line_items: [{ price: process.env.STRIPE_PRICE_ID!, quantity: 1 }],
-    // Apple Pay and Google Pay are enabled automatically in Stripe Checkout
-    // when the customer's device/browser supports them
     payment_method_types: ["card"],
-    payment_method_options: {
-      card: { request_three_d_secure: "automatic" },
-    },
+    // Collect payment method upfront — required for auto-charge after trial
+    payment_method_collection: "always",
     success_url: `${origin}/parent?upgraded=1`,
     cancel_url: `${origin}/parent`,
     metadata: { parentId: userId },
-    subscription_data: { metadata: { parentId: userId } },
+    subscription_data: {
+      trial_period_days: 7,
+      metadata: { parentId: userId },
+      trial_settings: {
+        end_behavior: {
+          // Cancel subscription if no payment method collected — belt + suspenders
+          missing_payment_method: "cancel",
+        },
+      },
+    },
     allow_promotion_codes: true,
     billing_address_collection: "auto",
+    // Custom messaging shown on Stripe Checkout
+    custom_text: {
+      submit: {
+        message: "You won't be charged today. Your 7-day free trial starts now — cancel any time before day 7 ends to avoid the $9.99/month charge.",
+      },
+    },
+    consent_collection: {
+      terms_of_service: "none",
+    },
   })
 
   return NextResponse.json({ url: session.url })

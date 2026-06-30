@@ -19,7 +19,7 @@
 4. [High-Level Architecture](#4-high-level-architecture)
 5. [Component Hierarchy](#5-component-hierarchy)
 6. [Feature Breakdown](#6-feature-breakdown)
-   - 6.1 Splash Screen
+   - 6.1 Splash Screen / Landing Page
    - 6.2 Chat Mode (Notebook UI)
    - 6.3 Practice Mode
    - 6.4 Exam Mode
@@ -32,15 +32,17 @@
 8. [State Management](#8-state-management)
 9. [Data Persistence](#9-data-persistence)
 10. [Authentication](#10-authentication)
-11. [UI & Design System](#11-ui--design-system)
-12. [Environment Variables](#12-environment-variables)
-13. [Local Development Setup](#13-local-development-setup)
-14. [Roadmap](#14-roadmap)
-15. [Deployment](#15-deployment)
-16. [Favicon & Open Graph](#16-favicon--open-graph)
-17. [Privacy Policy](#17-privacy-policy)
-18. [About Page](#18-about-page)
-19. [Version History](#19-version-history)
+11. [Parent / Child System](#11-parent--child-system)
+12. [Billing & Subscriptions](#12-billing--subscriptions)
+13. [UI & Design System](#13-ui--design-system)
+14. [Environment Variables](#14-environment-variables)
+15. [Local Development Setup](#15-local-development-setup)
+16. [Roadmap](#16-roadmap)
+17. [Deployment](#17-deployment)
+18. [Favicon & Open Graph](#18-favicon--open-graph)
+19. [Privacy Policy](#19-privacy-policy)
+20. [About Page](#20-about-page)
+21. [Version History](#21-version-history)
 
 ---
 
@@ -95,11 +97,14 @@ Users can optionally sign in with Google, Apple, GitHub, email, or phone to sync
 | **rehype-raw** | ^7.0.0 | Passes raw HTML/SVG through the rehype pipeline — enables inline SVG diagrams in Claude responses |
 | **katex** | ^0.17.0 | KaTeX math renderer (CSS + runtime) |
 
-### Authentication
+### Authentication & Payments
 
 | Technology | Version | Purpose |
 |-----------|---------|---------|
-| **Clerk** (`@clerk/nextjs`) | ^7.5.10 | User authentication — Google, Apple, GitHub, email, phone number sign-in. Pre-built modal UI, session management, server-side `auth()` helper |
+| **Clerk** (`@clerk/nextjs`) | ^7.5.10 | Parent account authentication — Google, Apple, GitHub, email, phone. Session management, server-side `auth()` + `currentUser()` |
+| **bcryptjs** | ^3.0.2 | Hashes child PINs before storage — never stored in plaintext |
+| **jose** | ^6.0.10 | Signs and verifies child session JWTs (HS256, 12-hour expiry) |
+| **Stripe** | ^17.7.0 | Subscription billing — 7-day free trial then $9.99/month AUD. Apple Pay and Google Pay via Stripe Checkout. API version `2026-06-24.dahlia` |
 
 ### Database & ORM
 
@@ -133,6 +138,10 @@ ai-tutor/
 ├── app/
 │   ├── about/
 │   │   └── page.tsx                  # Founder story page (/about)
+│   ├── parent/
+│   │   └── page.tsx                  # Parent dashboard (/parent) — manage children, subscription
+│   ├── pricing/
+│   │   └── page.tsx                  # Standalone pricing page (/pricing)
 │   ├── privacy/
 │   │   └── page.tsx                  # Privacy policy page (/privacy)
 │   ├── icon.tsx                      # Branded favicon (32×32 PNG via ImageResponse)
@@ -148,18 +157,35 @@ ai-tutor/
 │   │   │   └── review/route.ts       # Step-by-step AI walkthroughs for wrong answers
 │   │   ├── exam-results/
 │   │   │   └── route.ts              # GET/POST exam results (auth-protected)
+│   │   ├── child-auth/
+│   │   │   └── route.ts              # GET profiles list; POST verifies PIN → issues 12h JWT
+│   │   ├── child-profiles/
+│   │   │   └── route.ts              # CRUD for child profiles (parent auth required)
 │   │   ├── feedback/
 │   │   │   └── route.ts              # POST feedback (auth-optional, saves to Feedback table)
 │   │   ├── practice-results/
 │   │   │   └── route.ts              # POST practice results (auth-protected)
-│   │   └── trivia/
-│   │       └── route.ts              # POST trivia questions (Brain Break, no auth)
+│   │   ├── stripe/
+│   │   │   ├── checkout/route.ts     # Creates Stripe Checkout session (7-day trial)
+│   │   │   ├── portal/route.ts       # Creates Stripe billing portal session
+│   │   │   └── webhook/route.ts      # Handles Stripe events → updates Subscription table
+│   │   ├── subscription/
+│   │   │   └── route.ts              # GET subscription status (isPremium, trial days, founder)
+│   │   ├── testimonials/
+│   │   │   └── route.ts              # GET approved testimonials; POST new submission (approved:false)
+│   │   ├── trivia/
+│   │   │   └── route.ts              # POST trivia questions (Brain Break, no auth)
+│   │   └── usage/
+│   │       └── route.ts              # GET/POST daily usage for child sessions (child JWT auth)
 │   ├── components/
 │   │   ├── BreakZone.tsx             # Brain Break trivia quiz (landing page)
+│   │   ├── ChildLoginScreen.tsx      # PIN login screen for child profiles
 │   │   ├── ExamView.tsx              # All exam UI (setup → in-progress → results → review)
 │   │   ├── FeedbackForm.tsx          # Emoji mood + text feedback form (landing page)
-│   │   ├── Sidebar.tsx               # Chat history sidebar
-│   │   └── WelcomeScreen.tsx         # "Choose your mission" onboarding (between splash and app)
+│   │   ├── GuestLimitModal.tsx       # Modal shown when guest hits 20q/day or tries premium mode
+│   │   ├── Sidebar.tsx               # Chat history sidebar (light theme)
+│   │   ├── UpgradeModal.tsx          # Trial/upgrade prompt modal (child sessions — limit or locked feature)
+│   │   └── WelcomeScreen.tsx         # "Choose your mission" onboarding (light theme)
 │   ├── generated/
 │   │   └── prisma/                   # Auto-generated Prisma client (do not edit)
 │   ├── sign-in/[[...sign-in]]/
@@ -172,6 +198,7 @@ ai-tutor/
 │   └── types.ts                      # Shared TypeScript types
 ├── lib/
 │   ├── db.ts                         # Prisma client singleton (with Neon HTTP adapter)
+│   ├── founder.ts                    # isFounderUser() — checks Clerk email against FOUNDER_EMAIL
 │   └── ratelimit.ts                  # In-memory rate limiter (createRateLimiter + getIp)
 ├── prisma/
 │   ├── migrations/                   # Prisma migration history
@@ -722,6 +749,50 @@ model Feedback {
   message   String?
   createdAt DateTime @default(now())
 }
+
+model ChildProfile {
+  id           String       @id @default(cuid())
+  parentId     String                          // Clerk userId of parent
+  name         String
+  pinHash      String                          // bcrypt hash of 4-digit PIN
+  avatarEmoji  String       @default("🧑‍🎓")
+  dailyLimit   Int?                            // null = unlimited (for premium parents)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  dailyUsage   DailyUsage[]
+  @@index([parentId])
+}
+
+model DailyUsage {
+  id      String       @id @default(cuid())
+  childId String
+  date    String                              // ISO date "YYYY-MM-DD"
+  count   Int          @default(0)
+  child   ChildProfile @relation(fields: [childId], references: [id], onDelete: Cascade)
+  @@unique([childId, date])
+}
+
+model Subscription {
+  id               String    @id @default(cuid())
+  parentId         String    @unique                  // Clerk userId of parent
+  stripeCustomerId String?
+  stripePriceId    String?
+  stripeSubId      String?
+  status           String    @default("none")         // none | trialing | active | past_due | canceled
+  currentPeriodEnd DateTime?                          // trial end (trialing) or billing cycle end (active)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model Testimonial {
+  id        String   @id @default(cuid())
+  name      String
+  location  String?
+  quote     String
+  rating    Int      @default(5)
+  approved  Boolean  @default(false)   // approve in Prisma Studio to publish on landing page
+  createdAt DateTime @default(now())
+}
 ```
 
 ### localStorage key (guest fallback)
@@ -779,23 +850,138 @@ Sign-in can also be triggered as a modal from anywhere in the app (no page navig
 
 ---
 
-## 11. UI & Design System
+## 11. Parent / Child System
+
+SelectEd is designed for minors. Parents create and manage accounts; children log in separately with a PIN and only see the exam app — never billing, pricing, or account settings.
+
+### Account model
+
+```
+Parent (Clerk account)
+  └── ChildProfile (1–5 per parent, stored in Neon)
+        └── DailyUsage (per child, per date)
+```
+
+### Parent flow
+
+1. Parent signs up / signs in via Clerk (Google, Apple, email, etc.)
+2. Parent visits `/parent` dashboard to add child profiles — each has a name, emoji avatar, 4-digit PIN, and an optional daily question limit.
+3. Parent manages their Stripe subscription from the same dashboard.
+
+### Child login flow
+
+1. On any device where the parent has signed in, their Clerk `userId` is written to `localStorage("selected_parent_id")`.
+2. The child clicks "I'm a student →" on the landing page.
+3. `ChildLoginScreen.tsx` reads `localStorage("selected_parent_id")`, fetches `GET /api/child-auth?parentId=...` to list profiles (name + avatar only — no PINs exposed).
+4. Child taps their avatar, types their 4-digit PIN into an auto-advancing PIN pad.
+5. `POST /api/child-auth` verifies the PIN with `bcrypt.compare`, then issues a signed JWT (`jose SignJWT`, HS256, 12h, secret = `CHILD_JWT_SECRET`). Payload: `{ childId, parentId, name, avatarEmoji }`.
+6. JWT is stored in `localStorage` and attached as `x-child-token` header on every usage API call.
+
+### Premium gating for children
+
+All premium checks in `page.tsx` (client-side):
+
+| Check | `trackUsage()` | `checkPremiumFeature()` |
+|-------|---------------|------------------------|
+| Founder parent | always allowed | always allowed |
+| Premium/trialing | always allowed | always allowed |
+| Otherwise | POST /api/usage; show modal if `exceeded` | show UpgradeModal |
+
+`/api/usage` looks up the child's `parentId`, checks the parent's `Subscription.status`. If `active` or `trialing` → no limit, all modes. If `founder` → unlimited. Otherwise → limited preview access.
+
+### Child session constraints
+
+- Children cannot see: Sidebar, `StreakBadge`, auth controls, or any billing UI.
+- Child header shows: avatar emoji + name, usage count/limit, "Exit" button.
+- Session expires after 12 hours (JWT expiry) — child must PIN-log-in again.
+
+---
+
+## 12. Billing & Subscriptions
+
+### Model
+
+| Status | Meaning |
+|--------|---------|
+| `none` | No Stripe subscription created yet |
+| `trialing` | In the 7-day free trial — full premium access |
+| `active` | Paying subscriber — full premium access |
+| `past_due` | Payment failed — access restricted |
+| `canceled` | Subscription cancelled — access restricted |
+| `founder` | Virtual status returned by `/api/subscription` for founder email — never stored in DB |
+
+### 7-day free trial
+
+- New parent clicks "Start free trial →" → `POST /api/stripe/checkout` → Stripe Checkout in subscription mode.
+- Checkout session includes `subscription_data: { trial_period_days: 7 }` and `payment_method_collection: "always"` — payment method collected upfront but **no charge on day 0**.
+- Day 8: Stripe auto-charges $9.99 AUD/month.
+- Cancel before end of trial day 7 (24 h before trial end) = no charge ever.
+- Custom text on Stripe Checkout: "You won't be charged today. Cancel any time before day 7."
+- Apple Pay and Google Pay shown automatically by Stripe Checkout on supported devices.
+
+### Trial countdown (parent dashboard)
+
+`/api/subscription` returns `trialDaysLeft`, `trialEndsAt`, and `cancelBy` (= `trialEndsAt − 24h`). The parent dashboard displays a colour-coded banner:
+- Yellow (`#fefce8`) for 2+ days left.
+- Red (`#fef2f2`) for 0–1 days left, with "Cancel trial" button.
+
+### Stripe webhook events handled
+
+| Event | Action |
+|-------|--------|
+| `checkout.session.completed` | Upsert `Subscription` with Stripe sub ID + status (`trialing` or `active`) |
+| `customer.subscription.updated` | Update status + `currentPeriodEnd` |
+| `customer.subscription.deleted` | Update status to `canceled` |
+| `customer.subscription.trial_will_end` | Keep status as `trialing` (fires 3 days before trial ends) |
+| `invoice.payment_failed` | Update status to `past_due` |
+
+Webhook endpoint: `POST /api/stripe/webhook`. Verified via `stripe.webhooks.constructEvent` with `STRIPE_WEBHOOK_SECRET`.
+
+### Founder bypass
+
+`lib/founder.ts` exports `isFounderUser()` (server) which calls Clerk's `currentUser()` and compares primary email against `FOUNDER_EMAIL`. If matched, `/api/subscription` returns `{ status: "founder", isPremium: true, isFounder: true }` without touching the DB. Client-side: `useUser().user.primaryEmailAddress?.emailAddress === NEXT_PUBLIC_FOUNDER_EMAIL` disables all usage tracking and premium gates.
+
+### Stripe product
+
+| Field | Value |
+|-------|-------|
+| Product | SelectEd Premium (`prod_UnewOomidF73aR`) |
+| Price | $9.99 AUD/month (`price_1To3d22MKF2aIOmen6RDcHw8`) |
+| Mode | Subscription with 7-day trial |
+| Payment methods | Card, Apple Pay, Google Pay (auto-detected by Checkout) |
+
+---
+
+## 13. UI & Design System
 
 ### Colour palette
 
+#### Brand colours (used throughout app)
 | Token | Value | Usage |
 |-------|-------|-------|
-| Primary | `#4338ca` indigo-700 | Buttons, focus rings |
-| Brand cyan | `#00e5ff` | Logo, wordmark gradient start |
-| Brand purple | `#7c3aed` | Logo, wordmark gradient end, glow blobs |
-| Brand pink | `#ff44aa` | "Ed" suffix in wordmark |
-| Neon green | `#00ff80` | Stair edges in logo |
-| Amber | `#fbbf24` | Logo AI orb trail, practice labels |
-| Paper light | `#fefce8` | Notebook background |
-| Paper dark | `#0d1117` | Dark-mode notebook background |
-| Line light | `#bfdbfe` | Ruled lines (light) |
-| Line dark | `#1a2744` | Ruled lines (dark) |
-| Splash bg | `#0a0b1a` | Splash screen and About page background |
+| Navy | `#000936` | Primary buttons, headers, active states |
+| Gold | `#FDC800` | Button text on navy, accents, active tabs |
+| Orange | `#E34C00` | Logo swoosh, secondary accent |
+| Sky blue | `#56DBFF` | Logo orbital ring, wordmark "Select" |
+| Blue | `#0066CB` | Landing page headings, links |
+
+#### Light design system (app interior + landing page)
+| Token | Value | Usage |
+|-------|-------|-------|
+| Page bg | `#f8fafc` | App interior background |
+| Card bg | `white` | Cards, modals, sidebar |
+| Primary text | `#0f172a` | Headings |
+| Secondary text | `#64748b` | Body, labels |
+| Muted text | `#94a3b8` | Hints, subtitles |
+| Border | `#e2e8f0` | Dividers, card borders |
+| Active border | `#000936` | Selected items, focus |
+
+#### Legacy (splash screen, About page, Arcade mode)
+| Token | Value | Usage |
+|-------|-------|-------|
+| Splash bg | `#0a0b1a` | Dark screens only |
+| Paper light | `#fefce8` | Notebook chat background |
+| Paper dark | `#0d1117` | Dark-mode notebook (unused since light-theme migration) |
 
 ### Typography
 
@@ -834,28 +1020,58 @@ Designed mobile-first at the Tailwind `sm` (640px) breakpoint. Viewport uses `h-
 
 ---
 
-## 12. Environment Variables
+## 14. Environment Variables
 
 All secrets live in `.env.local` at the project root. This file is in `.gitignore` and is **never committed**.
 
+### AI & Core
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `ANTHROPIC_API_KEY` | Yes | Claude API key — `console.anthropic.com` |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Yes | Clerk publishable key — `dashboard.clerk.com` |
-| `CLERK_SECRET_KEY` | Yes | Clerk secret key — `dashboard.clerk.com` |
+
+### Clerk (Auth)
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Yes | Clerk publishable key |
+| `CLERK_SECRET_KEY` | Yes | Clerk secret key |
 | `NEXT_PUBLIC_CLERK_SIGN_IN_URL` | Yes | `/sign-in` |
 | `NEXT_PUBLIC_CLERK_SIGN_UP_URL` | Yes | `/sign-up` |
 | `NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL` | Yes | `/` |
 | `NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL` | Yes | `/` |
-| `POSTGRES_PRISMA_URL` | Yes | Neon pooled connection string (for Prisma queries) — added automatically by Vercel when Neon is connected |
-| `POSTGRES_URL_NON_POOLING` | Yes | Neon direct connection string (for Prisma Migrate) |
-| `DATABASE_URL` | Yes | Neon pooled URL (general use) |
 
-All Neon variables (`POSTGRES_*`, `DATABASE_*`) are automatically injected into the Vercel project when the Neon integration is added via the Vercel Storage tab. They are pulled locally with `vercel env pull .env.local`.
+### Child sessions
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `CHILD_JWT_SECRET` | Yes | HS256 signing secret for child session JWTs (32+ chars, random) |
+
+### Stripe
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `STRIPE_SECRET_KEY` | Yes | Stripe secret key (`sk_test_...` or `sk_live_...`) |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Yes | Stripe publishable key (used client-side) |
+| `STRIPE_WEBHOOK_SECRET` | Yes | Stripe webhook signing secret (`whsec_...`) |
+| `STRIPE_PRICE_ID` | Yes | Stripe Price ID for the $9.99 AUD/month plan |
+| `NEXT_PUBLIC_APP_URL` | Yes | Full app URL (e.g. `https://selected-ed.vercel.app`) — used for Stripe redirect URLs |
+
+### Founder bypass
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `FOUNDER_EMAIL` | Yes | `santrupta.mishra@gmail.com` — bypasses all limits and billing server-side |
+| `NEXT_PUBLIC_FOUNDER_EMAIL` | Yes | Same value — bypasses all limits client-side |
+
+### Database (Neon)
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | Yes | Neon pooled connection string |
+| `DATABASE_URL_UNPOOLED` | Yes | Neon direct connection (for migrations) |
+| `POSTGRES_PRISMA_URL` | Yes | Neon pooled URL for Prisma (auto-added by Vercel Neon integration) |
+| `POSTGRES_URL_NON_POOLING` | Yes | Neon non-pooling URL for Prisma Migrate |
+
+All Neon variables are automatically injected when the Neon integration is connected via the Vercel Storage tab. Pull locally with `vercel env pull .env.local`.
 
 ---
 
-## 13. Local Development Setup
+## 15. Local Development Setup
 
 ### Prerequisites
 
@@ -902,7 +1118,8 @@ npm run dev
 
 ```bash
 npx prisma generate           # Regenerate the Prisma client after schema changes
-npx prisma migrate dev        # Apply schema changes to Neon (creates a new migration)
+npx prisma db push            # Sync schema to Neon without migration history (preferred — avoids drift)
+npx prisma migrate dev        # Create a named migration (use only on clean DB)
 npx prisma studio             # Open Prisma Studio to browse data visually
 ```
 
@@ -918,7 +1135,7 @@ vercel --prod --yes  # Deploy to production
 
 ---
 
-## 14. Roadmap
+## 16. Roadmap
 
 ### Phase 4 — User Accounts ✅ COMPLETED (June 2026)
 
@@ -941,7 +1158,7 @@ vercel --prod --yes  # Deploy to production
 
 ---
 
-## 15. Deployment
+## 17. Deployment
 
 ### Live URLs
 
@@ -974,7 +1191,7 @@ All variables in Section 12 must be set in **Vercel dashboard → Project → Se
 
 ---
 
-## 16. Favicon & Open Graph
+## 18. Favicon & Open Graph
 
 ### Favicon
 
@@ -1000,7 +1217,7 @@ The legacy `app/favicon.ico` (Next.js scaffold default) remains as a fallback fo
 
 ---
 
-## 17. Privacy Policy
+## 19. Privacy Policy
 
 **Route:** `/privacy`
 **File:** `app/privacy/page.tsx`
@@ -1017,7 +1234,7 @@ Linked from the splash screen footer alongside "About the founder".
 
 ---
 
-## 18. About Page
+## 20. About Page
 
 
 **Route:** `/about`
@@ -1038,7 +1255,7 @@ Design: always dark (`#0a0b1a`), glow blobs, `max-w-2xl`, white headings, `slate
 
 ---
 
-## 19. Version History
+## 21. Version History
 
 | Version | Date | Summary |
 |---------|------|---------|
@@ -1065,5 +1282,15 @@ Design: always dark (`#0a0b1a`), glow blobs, `max-w-2xl`, white headings, `slate
 
 ---
 
-*Document last updated: 30 June 2026 (v0.19). Updated alongside the codebase whenever routes, components, or UX decisions change.*
+| **v0.20.0** | June 2026 | Professional light-theme redesign — full white/`#f8fafc` design system replacing dark theme throughout the app interior and landing page. New brand palette: navy `#000936`, gold `#FDC800`, orange `#E34C00`, sky-blue `#56DBFF`. Landing page redesigned to be parent-facing and conversion-focused (professional hero, stat strip, problem/solution sections, pricing comparison, testimonial-style cards, FAQ, final CTA). App interior (Sidebar, WelcomeScreen, chat, practice, controls, header) migrated to light theme — white cards, slate borders, navy/gold active states. Copyright year updated 2025 → 2026. About page rewritten with light theme, founder card, gold quote blockquote |
+| **v0.21.0** | June–July 2026 | Parent/child auth system — `ChildProfile`, `DailyUsage`, `Subscription` Prisma models added (`prisma db push`). `ChildLoginScreen.tsx`: PIN pad with auto-advance and backspace. Child JWTs signed with `jose` (12h expiry). `UpgradeModal.tsx`: shown on usage limit or locked mode. Parent dashboard `/parent`: child CRUD, subscription management. Premium gating: Exam + Adventure modes locked behind subscription; usage counted per child per day via `/api/usage`. Stripe integration: `@stripe/stripe-js` + server `stripe` package, Checkout session in subscription mode (AUD), Apple Pay + Google Pay automatic via Stripe Checkout, billing portal. Stripe API version `2026-06-24.dahlia`. Lazy `getStripe()` init pattern prevents build-time crashes when keys are placeholders. Pricing page `/pricing` added |
+| **v0.22.0** | July 2026 | 7-day free trial + founder bypass — Stripe Checkout updated with `trial_period_days: 7` and `payment_method_collection: "always"` (collect payment method upfront, charge nothing until day 8). Daily question limit removed; all features available during trial. `Subscription.status` now includes `trialing` (treated as premium everywhere). Parent dashboard shows colour-coded trial countdown banner (days left + exact cancel-by datetime). Landing page CTA changed to "Start your 7-day free trial →". `UpgradeModal` updated to trial framing. Pricing page rewritten as single-plan trial-first page. Founder bypass: `lib/founder.ts` checks Clerk email against `FOUNDER_EMAIL` env var server-side; `NEXT_PUBLIC_FOUNDER_EMAIL` used client-side; `santrupta.mishra@gmail.com` gets permanent unlimited access, bypasses all limits and billing |
+| **v0.26.0** | July 2026 | DoS protection — three-layer defence: (1) Upstash Redis distributed rate limiting replaces the defunct in-memory `Map` in `lib/ratelimit.ts` — sliding window, graceful in-memory fallback when env vars absent, unique Redis prefix per endpoint. `middleware.ts` deprecated → renamed to `proxy.ts` per Next.js 16 proxy convention; proxy runs a blanket 120-req/60s-per-IP gate on all `/api/*` routes before any serverless function is invoked. (2) Per-endpoint fine-grained limits: `/api/chat` 30/60s, `/api/trivia` 10/60s, `/api/exam/generate|review` 3/600s, `/api/exam/grade` 5/600s — all now distributed and enforced across instances. All 429 responses include `Retry-After` header. (3) Input caps to block token-bomb attacks on the Anthropic API: `/api/chat` caps conversation to last 20 messages and 8,000 chars each; `/api/exam/review` and `/api/exam/grade` cap to 20 questions and 5,000 chars each with 500-char answer fields; `/api/exam/generate` validates subject string; `/api/trivia` validates category against allow-list. Requires `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` env vars for distributed rate limiting (see Upstash setup below) |
+| **v0.25.0** | July 2026 | Automated security agent — (1) `next.config.ts` now sets 7 HTTP security headers on every route: `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (blocks camera/mic/geo/payment), `Strict-Transport-Security` (2yr + preload), `X-DNS-Prefetch-Control`, and a full `Content-Security-Policy` covering script/style/font/img/connect/frame origins for Clerk, Stripe, KaTeX, Google Fonts, and Vercel Analytics. (2) `scripts/pentest.mjs` — runnable Node.js audit that checks headers, probes 7 API endpoints for unauthenticated access, runs npm audit, scans codebase for dangerous patterns (dangerouslySetInnerHTML, eval, hardcoded secrets, SQL injection, wildcard CORS, sensitive console.log, NEXT_PUBLIC_ secrets, missing auth on API routes), and checks TLS redirect; outputs structured JSON. (3) Weekly Claude Code agent scheduled trigger (every Monday 18:00 UTC) — runs the audit, auto-fixes CRITICAL/HIGH findings, rebuilds, deploys, re-audits to confirm, updates DESIGN.md, and emails the founder a markdown report |
+| **v0.24.0** | July 2026 | Guest 20-questions/day limit — anonymous users (no Clerk session, no child session) are now gated at 20 questions per day via localStorage (`selected_guest_usage: {count, date}`). On limit hit or locked-mode attempt, `GuestLimitModal` opens: shows reset countdown to midnight, "Start free 7-day trial" (Clerk SignUpButton modal) and "I already have an account" (SignInButton modal). Header badge shows `X/20 questions today` for guests (turns red at limit). Signed-in parents and child sessions continue to use server-side tracking. `app/components/GuestLimitModal.tsx` added |
+| **v0.23.0** | July 2026 | Landing page: exam coverage panel, testimonials section, FAQ accordion — (1) Hero redesigned to two-column layout on desktop: text/CTAs left, exam coverage panel right. Panel shows 8 colour-coded exam badges (AMC, Olympiad, ACER, ICAS, ATAR, NAPLAN, Bebras, KSF) with name, full title, year range, and coloured accent bar. Includes legal disclaimer: "SelectEd is an independent preparation platform. Not affiliated with, endorsed by, or connected to the organisations that administer these assessments." (2) Testimonials section added (after Founder card): 3 hardcoded seed cards + fetched approved DB testimonials; "Share your experience →" opens inline form (name, location, star rating, quote); `POST /api/testimonials` saves with `approved: false`; `GET /api/testimonials` returns approved ones; founder approves via Prisma Studio. New `Testimonial` Prisma model (`id, name, location, quote, rating, approved, createdAt`). (3) FAQ accordion added (after Pricing, before final CTA): 8 questions covering trial, child login, limits, exam coverage, Socratic method, independence disclaimer; open/close with + toggle |
+
+---
+
+*Document last updated: 1 July 2026 (v0.26). Updated alongside the codebase whenever routes, components, or UX decisions change.*
 *Author: Santrupta Mishra (San) — Founder, SelectEd*
