@@ -5,11 +5,10 @@ Deletes any existing DESIGN.docx before writing a fresh copy.
 """
 
 import re
-import os
 import sys
 from pathlib import Path
 from docx import Document
-from docx.shared import Pt, RGBColor, Inches, Cm, Emu
+from docx.shared import Pt, RGBColor, Inches, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml.ns import qn
@@ -30,118 +29,163 @@ TAG_BLUE  = RGBColor(0x1D, 0xA4, 0xF3)
 WHITE     = RGBColor(0xFF, 0xFF, 0xFF)
 DARK_GRAY = RGBColor(0x1E, 0x29, 0x3B)
 MID_GRAY  = RGBColor(0x47, 0x55, 0x69)
-LIGHT_BG  = RGBColor(0xF1, 0xF5, 0xF9)
 CODE_FG   = RGBColor(0x0F, 0x17, 0x2A)
-RULE_CLR  = RGBColor(0xE2, 0xE8, 0xF0)
 
 
 # ── XML helpers ───────────────────────────────────────────────────────────────
+def _rgb_hex(color: RGBColor) -> str:
+    return f"{color[0]:02X}{color[1]:02X}{color[2]:02X}"
+
+
 def set_cell_shd(cell, fill_hex: str):
     tcPr = cell._tc.get_or_add_tcPr()
-    shd  = OxmlElement("w:shd")
+    for old in tcPr.findall(qn("w:shd")):
+        tcPr.remove(old)
+    shd = OxmlElement("w:shd")
     shd.set(qn("w:val"),   "clear")
     shd.set(qn("w:color"), "auto")
-    shd.set(qn("w:fill"),  fill_hex)
+    shd.set(qn("w:fill"),  fill_hex.replace("#", ""))
     tcPr.append(shd)
 
 
-def set_cell_borders(cell, color="E2E8F0"):
+def set_cell_border(cell, color="E2E8F0"):
     tcPr = cell._tc.get_or_add_tcPr()
-    tcB  = OxmlElement("w:tcBorders")
+    for old in tcPr.findall(qn("w:tcBorders")):
+        tcPr.remove(old)
+    tcB = OxmlElement("w:tcBorders")
     for side in ("top", "left", "bottom", "right"):
         el = OxmlElement(f"w:{side}")
         el.set(qn("w:val"),   "single")
         el.set(qn("w:sz"),    "4")
         el.set(qn("w:space"), "0")
-        el.set(qn("w:color"), color)
+        el.set(qn("w:color"), color.replace("#", ""))
         tcB.append(el)
     tcPr.append(tcB)
 
 
-def set_table_borders(table, color="D1D5DB"):
-    tbl    = table._tbl
-    tblPr  = tbl.tblPr
-    tblB   = OxmlElement("w:tblBorders")
-    for side in ("top","left","bottom","right","insideH","insideV"):
-        el = OxmlElement(f"w:{side}")
-        el.set(qn("w:val"),   "single")
-        el.set(qn("w:sz"),    "4")
-        el.set(qn("w:space"), "0")
-        el.set(qn("w:color"), color)
-        tblB.append(el)
-    tblPr.append(tblB)
+def _insert_pBdr(pPr, side: str, color: str, sz: str = "6", space: str = "4"):
+    """Insert w:pBdr into pPr BEFORE w:spacing/w:jc to satisfy OOXML schema order."""
+    for old in pPr.findall(qn("w:pBdr")):
+        pPr.remove(old)
+    pBdr = OxmlElement("w:pBdr")
+    el = OxmlElement(f"w:{side}")
+    el.set(qn("w:val"),   "single")
+    el.set(qn("w:sz"),    sz)
+    el.set(qn("w:space"), space)
+    el.set(qn("w:color"), color.replace("#", ""))
+    pBdr.append(el)
+    # Insert before w:spacing, w:ind, or w:jc — whichever comes first
+    for tag in ("w:spacing", "w:ind", "w:jc", "w:rPr"):
+        existing = pPr.find(qn(tag))
+        if existing is not None:
+            existing.addprevious(pBdr)
+            return
+    pPr.append(pBdr)
 
 
-def para_spacing(para, before=0, after=0, line=None):
+def para_spacing(para, before_twips=0, after_twips=0):
     pPr = para._p.get_or_add_pPr()
-    sp  = OxmlElement("w:spacing")
-    sp.set(qn("w:before"), str(before))
-    sp.set(qn("w:after"),  str(after))
-    if line:
-        sp.set(qn("w:line"),     str(line))
-        sp.set(qn("w:lineRule"), "auto")
+    for old in pPr.findall(qn("w:spacing")):
+        pPr.remove(old)
+    sp = OxmlElement("w:spacing")
+    sp.set(qn("w:before"), str(before_twips))
+    sp.set(qn("w:after"),  str(after_twips))
     pPr.append(sp)
 
 
 def set_para_shd(para, fill_hex: str):
     pPr = para._p.get_or_add_pPr()
+    for old in pPr.findall(qn("w:shd")):
+        pPr.remove(old)
     shd = OxmlElement("w:shd")
     shd.set(qn("w:val"),   "clear")
     shd.set(qn("w:color"), "auto")
-    shd.set(qn("w:fill"),  fill_hex)
+    shd.set(qn("w:fill"),  fill_hex.replace("#", ""))
+    # Insert before w:spacing/w:jc to maintain OOXML schema order
+    for tag in ("w:spacing", "w:ind", "w:jc"):
+        existing = pPr.find(qn(tag))
+        if existing is not None:
+            existing.addprevious(shd)
+            return
     pPr.append(shd)
 
 
-def add_header_footer(doc):
-    """Add a branded header with logo + wordmark and a footer with page numbers."""
+def add_field_run(para_elem, field_code: str):
+    """Append a properly-structured field (begin/instrText/end) to a paragraph element."""
+    for fc_type, content in [("begin", None), (None, field_code), ("end", None)]:
+        r = OxmlElement("w:r")
+        if fc_type is not None:
+            fc = OxmlElement("w:fldChar")
+            fc.set(qn("w:fldCharType"), fc_type)
+            r.append(fc)
+        else:
+            it = OxmlElement("w:instrText")
+            it.set(qn("xml:space"), "preserve")
+            it.text = f" {content} "
+            r.append(it)
+        para_elem.append(r)
+
+
+def xml_text_run(para_elem, text: str, color: RGBColor, size_pt: float = 8.0, bold=False):
+    """Append a plain text run directly to a paragraph XML element."""
+    r = OxmlElement("w:r")
+    rPr = OxmlElement("w:rPr")
+    if bold:
+        rPr.append(OxmlElement("w:b"))
+    fn = OxmlElement("w:rFonts")
+    fn.set(qn("w:ascii"), "Calibri")
+    fn.set(qn("w:hAnsi"), "Calibri")
+    rPr.append(fn)
+    sz = OxmlElement("w:sz")
+    sz.set(qn("w:val"), str(int(size_pt * 2)))
+    rPr.append(sz)
+    clr = OxmlElement("w:color")
+    clr.set(qn("w:val"), _rgb_hex(color))
+    rPr.append(clr)
+    r.append(rPr)
+    t = OxmlElement("w:t")
+    t.set(qn("xml:space"), "preserve")
+    t.text = text
+    r.append(t)
+    para_elem.append(r)
+
+
+# ── Header / footer ───────────────────────────────────────────────────────────
+def add_header_footer(doc: Document):
     section = doc.sections[0]
 
-    # ── Running header ────────────────────────────────────────────────────────
+    # ── Header ────────────────────────────────────────────────────────────────
     header = section.header
     header.is_linked_to_previous = False
-    # Clear default
     for p in header.paragraphs:
         p.clear()
 
     hp = header.paragraphs[0]
     hp.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    para_spacing(hp, 0, 80)
 
-    # Small inline logo
-    if LOGO_PNG.exists():
-        run_logo = hp.add_run()
-        run_logo.add_picture(str(LOGO_PNG), width=Inches(0.32))
-
-    # Wordmark text beside logo
-    run_select = hp.add_run("  Select")
-    run_select.font.name  = "Calibri"
-    run_select.font.bold  = True
-    run_select.font.size  = Pt(11)
-    run_select.font.color.rgb = SKY
-
-    run_ed = hp.add_run("Ed")
-    run_ed.font.name  = "Calibri"
-    run_ed.font.bold  = True
-    run_ed.font.size  = Pt(11)
-    run_ed.font.color.rgb = GOLD
-
-    run_title = hp.add_run("  ·  Design & Architecture Document")
-    run_title.font.name  = "Calibri"
-    run_title.font.size  = Pt(9)
-    run_title.font.color.rgb = MID_GRAY
-
-    # Thin gold bottom border on header paragraph via pBdr
+    # Add pBdr FIRST, then spacing — satisfies OOXML element order
     pPr = hp._p.get_or_add_pPr()
-    pBdr = OxmlElement("w:pBdr")
-    bottom = OxmlElement("w:bottom")
-    bottom.set(qn("w:val"),   "single")
-    bottom.set(qn("w:sz"),    "6")
-    bottom.set(qn("w:space"), "4")
-    bottom.set(qn("w:color"), "FDC800")
-    pBdr.append(bottom)
-    pPr.append(pBdr)
+    _insert_pBdr(pPr, "bottom", "FDC800", sz="6", space="4")
+    para_spacing(hp, 0, 60)
 
-    # ── Footer with page number ───────────────────────────────────────────────
+    if LOGO_PNG.exists():
+        logo_run = hp.add_run()
+        logo_run.add_picture(str(LOGO_PNG), width=Inches(0.28))
+
+    r_sel = hp.add_run("  Select")
+    r_sel.font.name = "Calibri"; r_sel.font.bold = True
+    r_sel.font.size = Pt(10);    r_sel.font.color.rgb = SKY
+
+    r_ed = hp.add_run("Ed")
+    r_ed.font.name = "Calibri"; r_ed.font.bold = True
+    r_ed.font.size = Pt(10);    r_ed.font.color.rgb = GOLD
+
+    r_title = hp.add_run("  -  Design & Architecture Document")
+    r_title.font.name = "Calibri"
+    r_title.font.size = Pt(8.5)
+    r_title.font.color.rgb = MID_GRAY
+
+    # ── Footer ────────────────────────────────────────────────────────────────
     footer = section.footer
     footer.is_linked_to_previous = False
     for p in footer.paragraphs:
@@ -149,55 +193,21 @@ def add_header_footer(doc):
 
     fp = footer.paragraphs[0]
     fp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    # Add top border BEFORE spacing
+    fPr = fp._p.get_or_add_pPr()
+    _insert_pBdr(fPr, "top", "E2E8F0", sz="4", space="4")
     para_spacing(fp, 60, 0)
 
-    fp.add_run("SelectEd  ·  Confidential  ·  Page ").font.color.rgb = MID_GRAY
-    fp.runs[-1].font.size = Pt(8)
-    fp.runs[-1].font.name = "Calibri"
-
-    # PAGE field
-    fld = OxmlElement("w:fldChar")
-    fld.set(qn("w:fldCharType"), "begin")
-    fp._p.append(fld)
-    instr = OxmlElement("w:instrText")
-    instr.set(qn("xml:space"), "preserve")
-    instr.text = " PAGE "
-    fp._p.append(instr)
-    fld2 = OxmlElement("w:fldChar")
-    fld2.set(qn("w:fldCharType"), "end")
-    fp._p.append(fld2)
-
-    r_of = fp.add_run("  of  ")
-    r_of.font.color.rgb = MID_GRAY
-    r_of.font.size = Pt(8)
-    r_of.font.name = "Calibri"
-
-    fld3 = OxmlElement("w:fldChar")
-    fld3.set(qn("w:fldCharType"), "begin")
-    fp._p.append(fld3)
-    instr2 = OxmlElement("w:instrText")
-    instr2.set(qn("xml:space"), "preserve")
-    instr2.text = " NUMPAGES "
-    fp._p.append(instr2)
-    fld4 = OxmlElement("w:fldChar")
-    fld4.set(qn("w:fldCharType"), "end")
-    fp._p.append(fld4)
-
-    # Top border on footer
-    pPr2 = fp._p.get_or_add_pPr()
-    pBdr2 = OxmlElement("w:pBdr")
-    top = OxmlElement("w:top")
-    top.set(qn("w:val"),   "single")
-    top.set(qn("w:sz"),    "4")
-    top.set(qn("w:space"), "4")
-    top.set(qn("w:color"), "E2E8F0")
-    pBdr2.append(top)
-    pPr2.append(pBdr2)
+    xml_text_run(fp._p, "SelectEd  -  Confidential  -  Page ", MID_GRAY, 8.0)
+    add_field_run(fp._p, "PAGE")
+    xml_text_run(fp._p, " of ", MID_GRAY, 8.0)
+    add_field_run(fp._p, "NUMPAGES")
 
 
 # ── Inline markdown renderer ──────────────────────────────────────────────────
 def render_inline(para, text: str, base_color=None, base_bold=False, base_size=None):
-    pattern = re.compile(r"(\*\*.*?\*\*|\*.*?\*|`[^`]+`)")
+    pattern = re.compile(r"(\*\*.*?\*\*|\*[^*].*?[^*]\*|`[^`]+`)")
     for part in pattern.split(text):
         if not part:
             continue
@@ -207,16 +217,16 @@ def render_inline(para, text: str, base_color=None, base_bold=False, base_size=N
             run.bold = True
             if base_color:
                 run.font.color.rgb = base_color
-        elif part.startswith("*") and part.endswith("*") and not part.startswith("**"):
-            run.text  = part[1:-1]
-            run.italic = True
-            if base_color:
-                run.font.color.rgb = base_color
         elif part.startswith("`") and part.endswith("`"):
             run.text           = part[1:-1]
             run.font.name      = "Courier New"
             run.font.size      = Pt(9)
             run.font.color.rgb = CODE_FG
+        elif part.startswith("*") and part.endswith("*"):
+            run.text   = part[1:-1]
+            run.italic = True
+            if base_color:
+                run.font.color.rgb = base_color
         else:
             run.text = part
             if base_color:
@@ -229,9 +239,9 @@ def render_inline(para, text: str, base_color=None, base_bold=False, base_size=N
 
 def parse_md_table(lines):
     headers, rows = [], []
-    for i, line in enumerate(lines):
+    for idx, line in enumerate(lines):
         cells = [c.strip() for c in line.strip().strip("|").split("|")]
-        if i == 0:
+        if idx == 0:
             headers = cells
         elif re.match(r"^[\s|:\-]+$", line):
             continue
@@ -244,16 +254,15 @@ def parse_md_table(lines):
 def build_doc(md_text: str) -> Document:
     doc = Document()
 
-    # Page setup
-    section = doc.sections[0]
-    section.page_width    = Inches(8.5)
-    section.page_height   = Inches(11)
-    section.left_margin   = Inches(1.1)
-    section.right_margin  = Inches(1.1)
-    section.top_margin    = Inches(1.1)
-    section.bottom_margin = Inches(0.9)
+    sec = doc.sections[0]
+    sec.page_width    = Inches(8.5)
+    sec.page_height   = Inches(11)
+    sec.left_margin   = Inches(1.1)
+    sec.right_margin  = Inches(1.1)
+    sec.top_margin    = Inches(1.1)
+    sec.bottom_margin = Inches(0.9)
 
-    # ── Base styles ───────────────────────────────────────────────────────────
+    # ── Styles ────────────────────────────────────────────────────────────────
     styles = doc.styles
 
     def ensure_style(name, base="Normal"):
@@ -264,140 +273,93 @@ def build_doc(md_text: str) -> Document:
         return st
 
     normal = styles["Normal"]
-    normal.font.name      = "Calibri"
-    normal.font.size      = Pt(10.5)
+    normal.font.name = "Calibri"
+    normal.font.size = Pt(10.5)
     normal.font.color.rgb = DARK_GRAY
 
     h1 = styles["Heading 1"]
-    h1.font.name      = "Calibri"
-    h1.font.size      = Pt(20)
-    h1.font.bold      = True
+    h1.font.name = "Calibri"; h1.font.size = Pt(20); h1.font.bold = True
     h1.font.color.rgb = NAVY
     h1.paragraph_format.space_before = Pt(20)
     h1.paragraph_format.space_after  = Pt(6)
 
     h2 = styles["Heading 2"]
-    h2.font.name      = "Calibri"
-    h2.font.size      = Pt(14)
-    h2.font.bold      = True
+    h2.font.name = "Calibri"; h2.font.size = Pt(14); h2.font.bold = True
     h2.font.color.rgb = BLUE
     h2.paragraph_format.space_before = Pt(14)
     h2.paragraph_format.space_after  = Pt(4)
 
     h3 = styles["Heading 3"]
-    h3.font.name      = "Calibri"
-    h3.font.size      = Pt(11.5)
-    h3.font.bold      = True
+    h3.font.name = "Calibri"; h3.font.size = Pt(11.5); h3.font.bold = True
     h3.font.color.rgb = MID_GRAY
     h3.paragraph_format.space_before = Pt(10)
     h3.paragraph_format.space_after  = Pt(2)
 
-    bullet_st = ensure_style("MD Bullet", "Normal")
-    bullet_st.font.name = "Calibri"
-    bullet_st.font.size = Pt(10.5)
-    bullet_st.paragraph_format.left_indent  = Cm(0.8)
-    bullet_st.paragraph_format.space_before = Pt(1)
-    bullet_st.paragraph_format.space_after  = Pt(1)
-
     code_st = ensure_style("MD Code", "Normal")
-    code_st.font.name      = "Courier New"
-    code_st.font.size      = Pt(8.5)
+    code_st.font.name = "Courier New"
+    code_st.font.size = Pt(8.5)
     code_st.font.color.rgb = CODE_FG
     code_st.paragraph_format.left_indent  = Cm(0.6)
     code_st.paragraph_format.space_before = Pt(0)
     code_st.paragraph_format.space_after  = Pt(0)
 
-    note_st = ensure_style("MD Note", "Normal")
-    note_st.font.name      = "Calibri"
-    note_st.font.size      = Pt(9.5)
-    note_st.font.italic    = True
-    note_st.font.color.rgb = MID_GRAY
+    ensure_style("MD Note", "Normal").font.italic = True
 
     # ── Cover page ────────────────────────────────────────────────────────────
-    # Logo centred
     if LOGO_PNG.exists():
-        logo_para = doc.add_paragraph()
-        logo_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        para_spacing(logo_para, 720, 120)
-        logo_run = logo_para.add_run()
-        logo_run.add_picture(str(LOGO_PNG), width=Inches(2.0))
+        lp = doc.add_paragraph()
+        lp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        para_spacing(lp, 720, 100)
+        lp.add_run().add_picture(str(LOGO_PNG), width=Inches(2.0))
 
-    # "SelectEd" wordmark
     wm = doc.add_paragraph()
     wm.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    para_spacing(wm, 0, 40)
-    r_sel = wm.add_run("Select")
-    r_sel.font.name      = "Calibri"
-    r_sel.font.size      = Pt(42)
-    r_sel.font.bold      = True
-    r_sel.font.color.rgb = SKY
-    r_ed = wm.add_run("Ed")
-    r_ed.font.name      = "Calibri"
-    r_ed.font.size      = Pt(42)
-    r_ed.font.bold      = True
-    r_ed.font.color.rgb = GOLD
+    para_spacing(wm, 0, 30)
+    r_s = wm.add_run("Select")
+    r_s.font.name = "Calibri"; r_s.font.size = Pt(42); r_s.font.bold = True; r_s.font.color.rgb = SKY
+    r_e = wm.add_run("Ed")
+    r_e.font.name = "Calibri"; r_e.font.size = Pt(42); r_e.font.bold = True; r_e.font.color.rgb = GOLD
 
-    # Tagline
     tag = doc.add_paragraph()
     tag.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    para_spacing(tag, 0, 40)
-    t1 = tag.add_run("Sharpen")
-    t1.font.name = "Calibri"; t1.font.size = Pt(13); t1.font.bold = True; t1.font.color.rgb = GOLD
-    t2 = tag.add_run("  ·  ")
-    t2.font.name = "Calibri"; t2.font.size = Pt(13); t2.font.color.rgb = MID_GRAY
-    t3 = tag.add_run("Sit")
-    t3.font.name = "Calibri"; t3.font.size = Pt(13); t3.font.bold = True; t3.font.color.rgb = TAG_BLUE
-    t4 = tag.add_run("  ·  ")
-    t4.font.name = "Calibri"; t4.font.size = Pt(13); t4.font.color.rgb = MID_GRAY
-    t5 = tag.add_run("Succeed.")
-    t5.font.name = "Calibri"; t5.font.size = Pt(13); t5.font.bold = True; t5.font.color.rgb = ORANGE
+    para_spacing(tag, 0, 30)
+    for txt, clr in [("Sharpen", GOLD), ("  -  ", MID_GRAY), ("Sit", TAG_BLUE), ("  -  ", MID_GRAY), ("Succeed.", ORANGE)]:
+        r = tag.add_run(txt)
+        r.font.name = "Calibri"; r.font.size = Pt(13)
+        r.font.bold = txt not in ("  -  ",)
+        r.font.color.rgb = clr
 
-    # Subtitle
     sub = doc.add_paragraph()
     sub.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    para_spacing(sub, 20, 60)
+    para_spacing(sub, 20, 50)
     rs = sub.add_run("AI-powered exam preparation for Australian & international competitions")
-    rs.font.name      = "Calibri"
-    rs.font.size      = Pt(12)
-    rs.font.italic    = True
-    rs.font.color.rgb = MID_GRAY
+    rs.font.name = "Calibri"; rs.font.size = Pt(12); rs.font.italic = True; rs.font.color.rgb = MID_GRAY
 
-    # Gold rule
     rule = doc.add_paragraph()
     rule.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    para_spacing(rule, 0, 40)
-    rr = rule.add_run("━" * 38)
-    rr.font.color.rgb = GOLD
-    rr.font.size      = Pt(12)
+    para_spacing(rule, 0, 30)
+    rr = rule.add_run("---" * 20)
+    rr.font.color.rgb = GOLD; rr.font.size = Pt(10)
 
-    # Document subtitle
-    dsub = doc.add_paragraph()
-    dsub.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    para_spacing(dsub, 0, 20)
-    rd = dsub.add_run("Design & Architecture Document")
-    rd.font.name      = "Calibri"
-    rd.font.size      = Pt(16)
-    rd.font.bold      = True
-    rd.font.color.rgb = NAVY
+    dt = doc.add_paragraph()
+    dt.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    para_spacing(dt, 0, 20)
+    rd = dt.add_run("Design & Architecture Document")
+    rd.font.name = "Calibri"; rd.font.size = Pt(16); rd.font.bold = True; rd.font.color.rgb = NAVY
 
-    # Meta line
-    meta = doc.add_paragraph()
-    meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    para_spacing(meta, 0, 720)
-    rm = meta.add_run("Santrupta Mishra (San)  ·  Founder, SelectEd  ·  June 2026")
-    rm.font.name      = "Calibri"
-    rm.font.size      = Pt(10)
-    rm.font.color.rgb = MID_GRAY
+    mt = doc.add_paragraph()
+    mt.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    para_spacing(mt, 0, 720)
+    rm = mt.add_run("Santrupta Mishra (San)  -  Founder, SelectEd  -  June 2026")
+    rm.font.name = "Calibri"; rm.font.size = Pt(10); rm.font.color.rgb = MID_GRAY
 
     doc.add_page_break()
-
-    # ── Add running header/footer (must be after first page break) ─────────────
     add_header_footer(doc)
 
-    # ── Parse and render markdown ─────────────────────────────────────────────
-    lines    = md_text.splitlines()
-    i        = 0
-    in_code  = False
+    # ── Parse markdown ────────────────────────────────────────────────────────
+    lines   = md_text.splitlines()
+    i       = 0
+    in_code = False
     code_buf: list[str] = []
 
     while i < len(lines):
@@ -429,9 +391,8 @@ def build_doc(md_text: str) -> Document:
             hr = doc.add_paragraph()
             para_spacing(hr, 60, 60)
             hr.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            rr = hr.add_run("━" * 50)
-            rr.font.color.rgb = GOLD
-            rr.font.size      = Pt(9)
+            rr2 = hr.add_run("-" * 60)
+            rr2.font.color.rgb = GOLD; rr2.font.size = Pt(9)
             i += 1
             continue
 
@@ -442,22 +403,11 @@ def build_doc(md_text: str) -> Document:
             text  = m.group(2).strip()
             smap  = {1: "Heading 1", 2: "Heading 2", 3: "Heading 3"}
             para  = doc.add_paragraph(style=smap.get(level, "Heading 3"))
-            # H1: add a left accent bar via paragraph border
-            if level == 1:
-                pPr = para._p.get_or_add_pPr()
-                pBdr = OxmlElement("w:pBdr")
-                left = OxmlElement("w:left")
-                left.set(qn("w:val"),   "single")
-                left.set(qn("w:sz"),    "24")
-                left.set(qn("w:space"), "12")
-                left.set(qn("w:color"), "FDC800")
-                pBdr.append(left)
-                pPr.append(pBdr)
             render_inline(para, text)
             i += 1
             continue
 
-        # Markdown table
+        # Table
         if line.strip().startswith("|"):
             tbl_lines = []
             while i < len(lines) and lines[i].strip().startswith("|"):
@@ -469,60 +419,47 @@ def build_doc(md_text: str) -> Document:
             ncols = len(headers)
             tbl   = doc.add_table(rows=1 + len(rows), cols=ncols)
             tbl.alignment = WD_TABLE_ALIGNMENT.LEFT
-            set_table_borders(tbl)
+            tbl.style = "Table Grid"
 
-            # Header row — navy background, white text
-            hdr_cells = tbl.rows[0].cells
             for ci, h in enumerate(headers):
-                hdr_cells[ci].text = ""
-                p = hdr_cells[ci].paragraphs[0]
+                cell = tbl.rows[0].cells[ci]
+                cell.text = ""
+                p = cell.paragraphs[0]
                 r = p.add_run(h)
-                r.bold            = True
-                r.font.color.rgb  = WHITE
-                r.font.size       = Pt(9.5)
-                r.font.name       = "Calibri"
-                set_cell_shd(hdr_cells[ci], "000936")
-                set_cell_borders(hdr_cells[ci], "000936")
+                r.bold = True; r.font.name = "Calibri"
+                r.font.size = Pt(9.5); r.font.color.rgb = WHITE
+                set_cell_shd(cell, "000936")
+                set_cell_border(cell, "000936")
 
-            # Data rows — alternating light/white
             for ri, row in enumerate(rows):
-                row_cells = tbl.rows[ri + 1].cells
                 bg = "F8FAFC" if ri % 2 == 0 else "FFFFFF"
                 for ci, cell_text in enumerate(row):
                     if ci >= ncols:
                         break
-                    row_cells[ci].text = ""
-                    p = row_cells[ci].paragraphs[0]
+                    cell = tbl.rows[ri + 1].cells[ci]
+                    cell.text = ""
+                    p = cell.paragraphs[0]
                     para_spacing(p, 30, 30)
                     render_inline(p, cell_text.strip(), base_color=DARK_GRAY, base_size=9)
-                    set_cell_shd(row_cells[ci], bg)
-                    set_cell_borders(row_cells[ci], "E2E8F0")
+                    set_cell_shd(cell, bg)
+                    set_cell_border(cell, "E2E8F0")
 
             doc.add_paragraph()
             continue
 
         # Bullet / numbered list
-        m_bullet = re.match(r"^(\s*)([-*]|\d+\.)\s+(.*)", line)
-        if m_bullet:
-            indent  = len(m_bullet.group(1))
-            is_num  = bool(re.match(r"\d+\.", m_bullet.group(2)))
-            text    = m_bullet.group(3)
+        m_b = re.match(r"^(\s*)([-*]|\d+\.)\s+(.*)", line)
+        if m_b:
+            indent = len(m_b.group(1))
+            is_num = bool(re.match(r"\d+\.", m_b.group(2)))
             bp = doc.add_paragraph(style="List Number" if is_num else "List Bullet")
             bp.paragraph_format.left_indent = Cm(0.8 + indent * 0.4)
-            render_inline(bp, text, base_color=DARK_GRAY)
+            render_inline(bp, m_b.group(3), base_color=DARK_GRAY)
             i += 1
             continue
 
-        # Italic note line
+        # Blank
         stripped = line.strip()
-        if stripped.startswith("*") and stripped.endswith("*") and not stripped.startswith("**"):
-            np = doc.add_paragraph(style="MD Note")
-            para_spacing(np, 4, 4)
-            np.add_run(stripped.strip("*"))
-            i += 1
-            continue
-
-        # Blank line
         if not stripped:
             i += 1
             continue
@@ -538,11 +475,10 @@ def build_doc(md_text: str) -> Document:
 
 def main():
     if not SRC.exists():
-        print(f"ERROR: {SRC} not found")
-        sys.exit(1)
+        print(f"ERROR: {SRC} not found"); sys.exit(1)
 
     if not LOGO_PNG.exists():
-        print("WARNING: scripts/logo.png not found — run node scripts/svg_to_png.js first")
+        print("WARNING: scripts/logo.png missing -- run: node scripts/svg_to_png.js")
 
     if DEST.exists():
         DEST.unlink()
@@ -551,8 +487,7 @@ def main():
     md_text = SRC.read_text(encoding="utf-8")
     doc     = build_doc(md_text)
     doc.save(str(DEST))
-    size_kb = DEST.stat().st_size // 1024
-    print(f"Saved {DEST.name}  ({size_kb} KB)")
+    print(f"Saved {DEST.name}  ({DEST.stat().st_size // 1024} KB)")
 
 
 if __name__ == "__main__":
