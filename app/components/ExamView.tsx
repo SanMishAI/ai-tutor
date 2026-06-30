@@ -28,7 +28,22 @@ function MD({ children }: { children: string }) {
   )
 }
 
-export default function ExamView({ subject, yearLevel }: { subject: string; yearLevel: string }) {
+interface ExamFinishPayload {
+  score: number
+  total: number
+  timeTaken: number
+  wrongAnswers: { question: string; yourAnswer: string; correct: string }[]
+}
+
+export default function ExamView({
+  subject,
+  yearLevel,
+  onFinish,
+}: {
+  subject: string
+  yearLevel: string
+  onFinish?: (payload: ExamFinishPayload) => void
+}) {
   const [examState, setExamState] = useState<ExamState>("setup")
   const [duration, setDuration] = useState(30)
   const [questions, setQuestions] = useState<ExamQuestion[]>([])
@@ -55,6 +70,15 @@ export default function ExamView({ subject, yearLevel }: { subject: string; year
       if (data.error) throw new Error(data.error)
       setResults(data.results)
       setExamState("results")
+      const finalScore = (data.results as GradedResult[]).filter(r => r.correct).length
+      onFinish?.({
+        score: finalScore,
+        total: data.results.length,
+        timeTaken: duration * 60 - timeLeft,
+        wrongAnswers: (data.results as GradedResult[])
+          .filter(r => !r.correct)
+          .map(r => ({ question: r.question.text, yourAnswer: r.yourAnswer, correct: r.correctAnswer })),
+      })
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to grade exam")
       setExamState("in_progress")

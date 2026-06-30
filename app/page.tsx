@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkMath from "remark-math"
 import rehypeKatex from "rehype-katex"
@@ -338,15 +338,35 @@ export default function Home() {
   const [practiceActive, setPracticeActive] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const { isSignedIn } = useUser()
 
   const activeConv = conversations.find(c => c.id === activeId)
   const messages = activeConv?.messages ?? []
 
+  // Load conversations — from cloud if signed in, otherwise localStorage
   useEffect(() => {
-    setConversations(loadConversations())
+    if (isSignedIn === undefined) return
+    if (isSignedIn) {
+      fetch("/api/conversations")
+        .then(r => r.json())
+        .then((data: Conversation[]) => {
+          if (Array.isArray(data)) setConversations(data)
+        })
+        .catch(() => setConversations(loadConversations()))
+    } else {
+      setConversations(loadConversations())
+    }
+  }, [isSignedIn])
 
+  // Persist to localStorage when guest
+  useEffect(() => {
+    if (!isSignedIn && conversations.length > 0) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations))
+    }
+  }, [conversations, isSignedIn])
+
+  useEffect(() => {
     // Track the sm breakpoint (640px) so the sidebar follows orientation changes.
-    // Crossing below 640px forces it closed; crossing above reopens it.
     const smMq = window.matchMedia("(min-width: 640px)")
     setSidebarOpen(smMq.matches)
     const smHandler = (e: MediaQueryListEvent) => setSidebarOpen(e.matches)
@@ -362,12 +382,6 @@ export default function Home() {
       mq.removeEventListener("change", handler)
     }
   }, [])
-
-  useEffect(() => {
-    if (conversations.length > 0) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(conversations))
-    }
-  }, [conversations])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -398,7 +412,11 @@ export default function Home() {
   function deleteConversation(id: string) {
     const updated = conversations.filter(c => c.id !== id)
     setConversations(updated)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+    if (isSignedIn) {
+      fetch("/api/conversations", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) })
+    } else {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated))
+    }
     if (activeId === id) {
       setActiveId(null)
       setAttemptCount(0)
@@ -409,18 +427,30 @@ export default function Home() {
   function saveMessages(msgs: Message[], convId: string, title?: string) {
     setConversations(prev => {
       const exists = prev.find(c => c.id === convId)
+      let updated: Conversation[]
       if (exists) {
-        return prev.map(c => c.id === convId ? { ...c, messages: msgs } : c)
+        updated = prev.map(c => c.id === convId ? { ...c, messages: msgs } : c)
+      } else {
+        const newConv: Conversation = {
+          id: convId,
+          title: title ?? "New conversation",
+          subject,
+          yearLevel,
+          messages: msgs,
+          mode: mode === "exam" ? "chat" : mode,
+          createdAt: new Date().toISOString(),
+        }
+        updated = [...prev, newConv]
       }
-      const newConv: Conversation = {
-        id: convId,
-        title: title ?? "New conversation",
-        subject,
-        messages: msgs,
-        mode: mode === "exam" ? "chat" : mode,
-        createdAt: new Date().toISOString(),
+      const conv = updated.find(c => c.id === convId)!
+      if (isSignedIn) {
+        fetch("/api/conversations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(conv),
+        })
       }
-      return [...prev, newConv]
+      return updated
     })
   }
 
@@ -635,7 +665,19 @@ export default function Home() {
           </div>
 
           {/* Exam mode */}
-          {mode === "exam" && <ExamView subject={subject} yearLevel={yearLevel} />}
+          {mode === "exam" && (
+            <ExamView
+              subject={subject}
+              yearLevel={yearLevel}
+              onFinish={isSignedIn ? (payload) => {
+                fetch("/api/exam-results", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ subject, yearLevel, ...payload }),
+                })
+              } : undefined}
+            />
+          )}
 
           {/* Chat / Practice window */}
           {mode !== "exam" && (

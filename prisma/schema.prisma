@@ -1,0 +1,48 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Conversation {
+  id        String   @id
+  userId    String
+  title     String
+  subject   String
+  yearLevel String
+  mode      String
+  messages  Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model ExamResult {
+  id           String   @id @default(cuid())
+  userId       String
+  subject      String
+  yearLevel    String
+  score        Int
+  total        Int
+  timeTaken    Int?
+  wrongAnswers Json
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+}
+
+model PracticeResult {
+  id        String   @id @default(cuid())
+  userId    String
+  subject   String
+  yearLevel String
+  question  String
+  correct   Boolean
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
