@@ -864,7 +864,7 @@ export default function Home() {
               <a href="/leaderboard" className="hover:text-slate-700 transition-colors">Leaderboard</a>
               <a href="/privacy" className="hover:text-slate-700 transition-colors">Privacy</a>
             </div>
-            <p className="text-xs" style={{ color: "#cbd5e1" }}>© 2025 SelectEd. All rights reserved.</p>
+            <p className="text-xs" style={{ color: "#cbd5e1" }}>© 2026 SelectEd. All rights reserved.</p>
           </div>
         </footer>
 

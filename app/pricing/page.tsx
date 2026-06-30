@@ -148,7 +148,7 @@ export default function PricingPage() {
           <Link href="/privacy" className="hover:text-slate-600 transition-colors">Privacy</Link>
           <Link href="/leaderboard" className="hover:text-slate-600 transition-colors">Leaderboard</Link>
         </div>
-        <p className="text-center text-xs mt-4" style={{ color: "#cbd5e1" }}>© 2025 SelectEd · Made in Melbourne 🇦🇺</p>
+        <p className="text-center text-xs mt-4" style={{ color: "#cbd5e1" }}>© 2026 SelectEd · Made in Melbourne 🇦🇺</p>
       </footer>
 
     </div>
