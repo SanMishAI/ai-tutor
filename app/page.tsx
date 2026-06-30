@@ -579,6 +579,14 @@ export default function Home() {
               AMC · Olympiad · ACER · ICAS · ATAR · NAPLAN · Bebras · KSF
             </p>
           </div>
+
+          {/* Scroll hint */}
+          <div className="absolute bottom-8 left-0 right-0 flex flex-col items-center gap-1 pointer-events-none select-none" style={{ animation: "bounce 2s infinite" }}>
+            <p className="text-xs tracking-widest uppercase" style={{ color: "#4a5568" }}>scroll to explore</p>
+            <svg width="20" height="12" viewBox="0 0 20 12" fill="none">
+              <path d="M2 2L10 10L18 2" stroke="#4a5568" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
         </div>
 
         {/* ── FEATURES ── */}
