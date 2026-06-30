@@ -10,6 +10,7 @@ import Sidebar from "./components/Sidebar"
 import ExamView from "./components/ExamView"
 import BreakZone from "./components/BreakZone"
 import FeedbackForm from "./components/FeedbackForm"
+import WelcomeScreen from "./components/WelcomeScreen"
 import type { Message, Conversation } from "./types"
 
 const SUBJECTS = [
@@ -336,6 +337,7 @@ function Logo({ size = 56, style: extraStyle }: { size?: number; style?: React.C
 
 export default function Home() {
   const [splashDone, setSplashDone] = useState(false)
+  const [introSeen, setIntroSeen] = useState(false)
   const [showBackToTop, setShowBackToTop] = useState(false)
   const [isDark, setIsDark] = useState(false)
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -550,6 +552,19 @@ export default function Home() {
   }
 
   const showRevealButton = mode === "practice" && practiceActive && attemptCount >= MAX_ATTEMPTS
+
+  if (splashDone && !introSeen) {
+    return (
+      <WelcomeScreen
+        onStart={(sub, yr, m) => {
+          setSubject(sub)
+          setYearLevel(yr)
+          setMode(m)
+          setIntroSeen(true)
+        }}
+      />
+    )
+  }
 
   if (!splashDone) {
     return (
