@@ -134,7 +134,8 @@ function AuthButton() {
   }
   return (
     <SignInButton mode="modal">
-      <button className="text-sm font-semibold px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors">
+      <button className="text-sm font-bold px-3 py-1.5 rounded-lg transition-all hover:opacity-90"
+        style={{ background: "#000936", color: "#FDC800" }}>
         Sign in
       </button>
     </SignInButton>
@@ -1064,7 +1065,7 @@ export default function Home() {
   }
 
   return (
-    <div className="h-[100dvh] flex flex-col bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-950 dark:via-gray-900 dark:to-indigo-950">
+    <div className="h-[100dvh] flex flex-col" style={{ background: "#f8fafc" }}>
 
       {/* Header */}
       <header className="bg-white border-b border-slate-100 shadow-sm px-4 py-2.5 flex items-center justify-between shrink-0">
@@ -1114,11 +1115,12 @@ export default function Home() {
           {/* Controls */}
           <div className="flex gap-3 items-end shrink-0 flex-wrap">
             <div className="flex-1 min-w-[140px]">
-              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Exam / Subject</label>
+              <label className="block text-xs font-semibold mb-1" style={{ color: "#94a3b8" }}>Exam / Subject</label>
               <select
                 value={subject}
                 onChange={(e) => handleSubjectChange(e.target.value)}
-                className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="w-full p-2 rounded-xl text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
+                style={{ border: "1px solid #e2e8f0", background: "white", color: "#334155" }}
               >
                 {SUBJECTS.map((s) => (
                   <option key={s} value={s}>{s}</option>
@@ -1126,11 +1128,12 @@ export default function Home() {
               </select>
             </div>
             <div className="min-w-[100px]">
-              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Year Level</label>
+              <label className="block text-xs font-semibold mb-1" style={{ color: "#94a3b8" }}>Year Level</label>
               <select
                 value={yearLevel}
                 onChange={(e) => setYearLevel(e.target.value)}
-                className="w-full p-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                className="w-full p-2 rounded-xl text-sm shadow-sm focus:outline-none focus:ring-2"
+                style={{ border: "1px solid #e2e8f0", background: "white", color: "#334155" }}
               >
                 {YEAR_LEVELS[subject].map((y) => (
                   <option key={y} value={y}>{y}</option>
@@ -1192,45 +1195,31 @@ export default function Home() {
             <div
               className="flex-1 overflow-y-auto rounded-2xl shadow-sm"
               style={mode === "chat" ? {
-                backgroundColor: isDark ? "#0d1117" : "#fefce8",
+                backgroundColor: "#fefce8",
                 backgroundImage: [
-                  isDark
-                    ? "linear-gradient(90deg, transparent 72px, #3d1530 72px, #3d1530 74px, transparent 74px)"
-                    : "linear-gradient(90deg, transparent 72px, #fca5a5 72px, #fca5a5 74px, transparent 74px)",
-                  isDark
-                    ? "repeating-linear-gradient(transparent 0px, transparent 31px, #1a2744 31px, #1a2744 32px)"
-                    : "repeating-linear-gradient(transparent 0px, transparent 31px, #bfdbfe 31px, #bfdbfe 32px)",
+                  "linear-gradient(90deg, transparent 72px, #fca5a5 72px, #fca5a5 74px, transparent 74px)",
+                  "repeating-linear-gradient(transparent 0px, transparent 31px, #bfdbfe 31px, #bfdbfe 32px)",
                 ].join(", "),
                 backgroundAttachment: "local",
                 padding: "12px 0 12px 0",
-              } : { padding: "16px" }}
+              } : { padding: "16px", background: "transparent" }}
             >
               {/* NOTEBOOK CHAT MODE */}
               {mode === "chat" && (
                 <div style={{ fontFamily: "var(--font-caveat), Caveat, cursive" }}>
                   {messages.length === 0 && (
                     <div className="flex flex-col items-center justify-center h-48 gap-2" style={{ paddingLeft: 80 }}>
-                      <p style={{ color: isDark ? "#475569" : "#94a3b8", fontSize: 22 }}>Open your notebook and ask anything…</p>
+                      <p style={{ color: "#94a3b8", fontSize: 22 }}>Open your notebook and ask anything…</p>
                     </div>
                   )}
                   {messages.map((msg, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        paddingLeft: 80,
-                        paddingRight: 24,
-                        paddingTop: 6,
-                        paddingBottom: 6,
-                      }}
-                    >
+                    <div key={i} style={{ paddingLeft: 80, paddingRight: 24, paddingTop: 6, paddingBottom: 6 }}>
                       <span style={{
                         fontSize: 11,
                         fontFamily: "system-ui",
                         fontWeight: 600,
                         letterSpacing: "0.05em",
-                        color: msg.role === "user"
-                          ? (isDark ? "#818cf8" : "#6366f1")
-                          : (isDark ? "#ffffff" : "#b45309"),
+                        color: msg.role === "user" ? "#6366f1" : "#b45309",
                         textTransform: "uppercase",
                       }}>
                         {msg.role === "user" ? "You" : "Tutor"}
@@ -1238,19 +1227,15 @@ export default function Home() {
                       <div style={{
                         fontSize: 20,
                         lineHeight: "32px",
-                        color: msg.role === "user"
-                          ? (isDark ? "#93c5fd" : "#1e3a5f")
-                          : (isDark ? "#ffffff" : "#431407"),
-                        ...(msg.role === "assistant" && {
-                          "--tw-prose-body":     isDark ? "#ffffff" : "#431407",
-                          "--tw-prose-headings": isDark ? "#ffffff" : "#431407",
-                          "--tw-prose-bold":     isDark ? "#ffffff" : "#431407",
-                          "--tw-prose-counters": isDark ? "#ffffff" : "#431407",
-                          "--tw-prose-bullets":  isDark ? "#ffffff" : "#431407",
-                          "--tw-prose-quotes":   isDark ? "#ffffff" : "#431407",
-                          "--tw-prose-code":     isDark ? "#ffffff" : "#431407",
-                          "--tw-prose-links":    isDark ? "#93c5fd" : "#3b82f6",
-                        }),
+                        color: msg.role === "user" ? "#1e3a5f" : "#431407",
+                        "--tw-prose-body":     "#431407",
+                        "--tw-prose-headings": "#431407",
+                        "--tw-prose-bold":     "#431407",
+                        "--tw-prose-counters": "#431407",
+                        "--tw-prose-bullets":  "#431407",
+                        "--tw-prose-quotes":   "#431407",
+                        "--tw-prose-code":     "#431407",
+                        "--tw-prose-links":    "#3b82f6",
                       } as React.CSSProperties}
                         className={msg.role === "assistant" ? "prose prose-sm max-w-none [&_p]:my-0 [&_ul]:my-1 [&_ol]:my-1 [&_*]:!text-inherit" : ""}
                       >
@@ -1266,8 +1251,8 @@ export default function Home() {
                   ))}
                   {loading && (
                     <div style={{ paddingLeft: 80, paddingTop: 6 }}>
-                      <span style={{ fontSize: 11, fontFamily: "system-ui", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", color: isDark ? "#ffffff" : "#b45309" }}>Tutor</span>
-                      <div style={{ fontSize: 22, color: isDark ? "#ffffff" : "#b45309" }}>
+                      <span style={{ fontSize: 11, fontFamily: "system-ui", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", color: "#b45309" }}>Tutor</span>
+                      <div style={{ fontSize: 22, color: "#b45309" }}>
                         <span className="animate-pulse">✏️</span>
                         <span className="animate-pulse" style={{ marginLeft: 4 }}>|</span>
                       </div>
@@ -1277,13 +1262,13 @@ export default function Home() {
                 </div>
               )}
 
-              {/* PRACTICE / NON-NOTEBOOK MODE */}
+              {/* PRACTICE MODE */}
               {mode === "practice" && (
                 <div className="space-y-4">
                   {messages.length === 0 && (
                     <div className="flex flex-col items-center justify-center h-full text-center py-16 gap-3">
                       <span className="text-5xl">📝</span>
-                      <p className="text-gray-400 dark:text-gray-500 text-sm max-w-xs">
+                      <p className="text-sm max-w-xs" style={{ color: "#94a3b8" }}>
                         Click &quot;Get Practice Problem&quot; to receive a question for {subject.split(" ")[0]}.
                       </p>
                     </div>
@@ -1291,11 +1276,21 @@ export default function Home() {
                   {messages.map((msg, i) => (
                     <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                       {msg.role === "assistant" && <span className="mr-2 mt-1 text-lg shrink-0">🤖</span>}
-                      <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
-                        msg.role === "user"
-                          ? "bg-indigo-600 text-white rounded-br-sm whitespace-pre-wrap"
-                          : "bg-indigo-50 dark:bg-gray-800 text-gray-800 dark:text-gray-100 rounded-bl-sm prose prose-sm dark:prose-invert max-w-none"
-                      }`}>
+                      <div
+                        className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
+                          msg.role === "user"
+                            ? "whitespace-pre-wrap rounded-br-sm"
+                            : "rounded-bl-sm prose prose-sm max-w-none"
+                        }`}
+                        style={msg.role === "user" ? {
+                          background: "#000936",
+                          color: "#FDC800",
+                        } : {
+                          background: "#ffffff",
+                          border: "1px solid #e2e8f0",
+                          color: "#334155",
+                        }}
+                      >
                         {msg.role === "user" ? msg.content : (
                           <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeRaw, rehypeKatex]}>
                             {msg.content}
@@ -1308,7 +1303,8 @@ export default function Home() {
                   {loading && (
                     <div className="flex justify-start items-center gap-2">
                       <span className="text-lg">🤖</span>
-                      <div className="bg-indigo-50 dark:bg-gray-800 rounded-2xl rounded-bl-sm px-4 py-3 text-sm text-gray-400 dark:text-gray-500 shadow-sm">
+                      <div className="rounded-2xl rounded-bl-sm px-4 py-3 text-sm shadow-sm"
+                        style={{ background: "#ffffff", border: "1px solid #e2e8f0", color: "#94a3b8" }}>
                         Thinking<span className="animate-pulse">...</span>
                       </div>
                     </div>
@@ -1325,16 +1321,18 @@ export default function Home() {
               <button
                 onClick={getPracticeProblem}
                 disabled={loading}
-                className="bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-colors"
+                className="px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all hover:opacity-90 disabled:opacity-40"
+                style={{ background: "#000936", color: "#FDC800" }}
               >
                 {practiceActive ? "🔄 New Problem" : "🎯 Get Practice Problem"}
               </button>
               {practiceActive && (
-                <span className={`text-sm font-medium px-3 py-1.5 rounded-full ${
-                  attemptCount >= MAX_ATTEMPTS
-                    ? "bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300"
-                    : "bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300"
-                }`}>
+                <span className="text-sm font-semibold px-3 py-1.5 rounded-full"
+                  style={attemptCount >= MAX_ATTEMPTS ? {
+                    background: "#fef2f2", color: "#b91c1c", border: "1px solid #fecaca"
+                  } : {
+                    background: "#f1f5f9", color: "#475569", border: "1px solid #e2e8f0"
+                  }}>
                   Attempt {Math.min(attemptCount, MAX_ATTEMPTS)} of {MAX_ATTEMPTS}
                 </span>
               )}
@@ -1342,7 +1340,8 @@ export default function Home() {
                 <button
                   onClick={revealAnswer}
                   disabled={loading}
-                  className="bg-rose-500 hover:bg-rose-600 disabled:opacity-40 text-white px-4 py-2.5 rounded-xl text-sm font-semibold shadow-sm transition-colors"
+                  className="px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all hover:opacity-90 disabled:opacity-40"
+                  style={{ background: "#dc2626", color: "white" }}
                 >
                   👁 Reveal Answer
                 </button>
@@ -1361,25 +1360,26 @@ export default function Home() {
               placeholder={mode === "practice" && practiceActive
                 ? "Type your answer or ask for a hint…"
                 : "Write your question here…"}
-              className="flex-1 border rounded-xl px-4 py-3 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 disabled:opacity-50"
+              className="flex-1 rounded-xl px-4 py-3 shadow-sm focus:outline-none focus:ring-2 disabled:opacity-50"
               style={mode === "chat" ? {
                 fontFamily: "var(--font-caveat), Caveat, cursive",
                 fontSize: 20,
-                backgroundColor: isDark ? "#0d1117" : "#fefce8",
-                borderColor: isDark ? "#1a2744" : "#bfdbfe",
-                color: isDark ? "#93c5fd" : "#1e3a5f",
+                backgroundColor: "#fefce8",
+                border: "1px solid #bfdbfe",
+                color: "#1e3a5f",
               } : {
                 fontSize: 14,
-                backgroundColor: isDark ? undefined : "white",
-                borderColor: isDark ? undefined : "#e5e7eb",
-                color: isDark ? undefined : "#1f2937",
+                backgroundColor: "white",
+                border: "1px solid #e2e8f0",
+                color: "#334155",
               }}
               disabled={loading}
             />
             <button
               onClick={sendMessage}
               disabled={loading || !input.trim()}
-              className="bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white px-5 py-3 rounded-xl text-sm font-semibold shadow-sm disabled:opacity-40 transition-colors"
+              className="px-5 py-3 rounded-xl text-sm font-bold shadow-sm disabled:opacity-40 transition-all hover:opacity-90"
+              style={{ background: "#000936", color: "#FDC800" }}
             >
               Send
             </button>
