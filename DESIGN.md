@@ -25,6 +25,8 @@
    - 6.4 Exam Mode
    - 6.5 Exam Mistake Review
    - 6.6 Chat History Sidebar
+   - 6.7 Brain Break (Trivia Zone)
+   - 6.8 Feedback Form
 7. [API Routes](#7-api-routes)
 8. [State Management](#8-state-management)
 9. [Data Persistence](#9-data-persistence)
@@ -145,10 +147,16 @@ ai-tutor/
 │   │   │   └── review/route.ts       # Step-by-step AI walkthroughs for wrong answers
 │   │   ├── exam-results/
 │   │   │   └── route.ts              # GET/POST exam results (auth-protected)
-│   │   └── practice-results/
-│   │       └── route.ts              # POST practice results (auth-protected)
+│   │   ├── feedback/
+│   │   │   └── route.ts              # POST feedback (auth-optional, saves to Feedback table)
+│   │   ├── practice-results/
+│   │   │   └── route.ts              # POST practice results (auth-protected)
+│   │   └── trivia/
+│   │       └── route.ts              # POST trivia questions (Brain Break, no auth)
 │   ├── components/
+│   │   ├── BreakZone.tsx             # Brain Break trivia quiz (landing page)
 │   │   ├── ExamView.tsx              # All exam UI (setup → in-progress → results → review)
+│   │   ├── FeedbackForm.tsx          # Emoji mood + text feedback form (landing page)
 │   │   └── Sidebar.tsx               # Chat history sidebar
 │   ├── generated/
 │   │   └── prisma/                   # Auto-generated Prisma client (do not edit)
@@ -165,7 +173,7 @@ ai-tutor/
 │   └── ratelimit.ts                  # In-memory rate limiter (createRateLimiter + getIp)
 ├── prisma/
 │   ├── migrations/                   # Prisma migration history
-│   └── schema.prisma                 # Database schema (Conversation, ExamResult, PracticeResult)
+│   └── schema.prisma                 # Database schema (Conversation, ExamResult, PracticeResult, Feedback)
 ├── public/
 │   └── san.jpeg                      # Founder photo (About page)
 ├── middleware.ts                     # Clerk auth middleware (runs on every request)
@@ -283,6 +291,8 @@ The page is a scrollable landing page (`overflow-y-auto`). Above the fold it beh
 **Exams section** — six cards, one per supported exam (AMC, Olympiad, ACER, ICAS, ATAR, NAPLAN), each showing the short name in brand colour, full name, and year level range.
 
 **Trust strip** — single card with three columns: "No account required", "Free to use", "Powered by Claude AI".
+
+**Brain Break + Feedback** — collapsible panels below the trust strip (see §6.7 and §6.8).
 
 **Footer** — second "Start Learning →" button (so users don't scroll back up) above About + Privacy links.
 
@@ -404,6 +414,45 @@ On the results screen, the **"📖 Review N Mistakes with AI Tutor"** button cal
 
 ---
 
+### 6.7 Brain Break (Trivia Zone)
+
+**File:** `app/components/BreakZone.tsx`
+
+A collapsible panel on the splash/landing page designed to help students decompress after studying. Powered by `POST /api/trivia`.
+
+**State machine:** `choose → loading → playing → answered → done`
+
+**Categories:** Animals 🐾, Space 🚀, Sports ⚽, Pop Culture 🎬, World Records 🌍, Surprise Me! 🎲
+
+**Flow:**
+1. User picks a category
+2. Spinner while Claude generates 5 fun MC questions (4 options A–D, plus a fun fact per question)
+3. Answer buttons highlight green (correct) or red (wrong) after selection
+4. A fun fact is shown with a "Next Question →" button
+5. Results screen shows score/5 with an emoji message; "Play Again" resets to category picker
+
+Questions are generated live by Claude (`claude-sonnet-4-6`), targeting Australian school students aged 8–16 with surprising, non-academic content. Rate-limited to 10 requests/minute.
+
+---
+
+### 6.8 Feedback Form
+
+**File:** `app/components/FeedbackForm.tsx`
+
+A collapsible panel below Brain Break. Saves to the `Feedback` table in Neon.
+
+**Mood options:** 😍 Love it! · 😊 Like it · 😐 It's okay · 😕 Confused · 💡 Got ideas?
+
+**Flow:**
+1. User picks a mood (required)
+2. Optional text field (500 chars max) with mood-aware placeholder text
+3. Submit calls `POST /api/feedback` — stores mood + optional message + userId (if signed in) in Neon
+4. Success shows a confetti thank-you screen; "Send another message" link resets the form
+
+Guest users can submit feedback without signing in (`userId` is nullable).
+
+---
+
 ## 7. API Routes
 
 ### Rate limiting
@@ -416,6 +465,7 @@ All AI routes are protected by an in-memory rate limiter (`lib/ratelimit.ts`) ke
 | `POST /api/exam/generate` | 3 requests / 10 minutes |
 | `POST /api/exam/grade` | 5 requests / 10 minutes |
 | `POST /api/exam/review` | 3 requests / 10 minutes |
+| `POST /api/trivia` | 10 requests / minute |
 
 > **Note:** The limiter is in-process. Under heavy load Vercel may spin up multiple instances, each with its own counter. This is sufficient to prevent casual abuse; replace with Upstash Redis if higher traffic demands distributed enforcement.
 
@@ -463,6 +513,30 @@ Generates step-by-step walkthroughs for wrong answers. `max_tokens: 8000`. SVG s
 
 // Response — walkthroughs are full Markdown with LaTeX and optional SVG
 { "reviews": [{ "id": 1, "walkthrough": "Full markdown + LaTeX + optional <svg>...</svg>..." }] }
+```
+
+#### `POST /api/trivia`
+Generates 5 fun general-knowledge trivia questions for the Brain Break zone.
+
+```json
+// Request
+{ "category": "animals" | "space" | "sports" | "popculture" | "records" | "random" }
+
+// Response
+{ "questions": [{ "question": "string", "options": ["A. ...", "B. ...", "C. ...", "D. ..."], "answer": "A", "funFact": "string" }] }
+```
+
+Rate-limited to 10/minute. No auth required.
+
+#### `POST /api/feedback`
+Saves a user feedback entry. Auth optional — works for guests and signed-in users.
+
+```json
+// Request
+{ "mood": "love" | "like" | "okay" | "confused" | "idea", "message": "optional string" }
+
+// Response
+{ "ok": true }
 ```
 
 ---
@@ -598,6 +672,14 @@ model PracticeResult {
   correct   Boolean
   createdAt DateTime @default(now())
   @@index([userId])
+}
+
+model Feedback {
+  id        String   @id @default(cuid())
+  userId    String?                   // null for guest submissions
+  mood      String                    // "love" | "like" | "okay" | "confused" | "idea"
+  message   String?
+  createdAt DateTime @default(now())
 }
 ```
 
@@ -933,8 +1015,9 @@ Design: always dark (`#0a0b1a`), glow blobs, `max-w-2xl`, white headings, `slate
 | **v0.12.0** | June 2026 | Share-readiness pass — (1) In-memory rate limiting added to all four AI API routes (`lib/ratelimit.ts`): 30 req/min for chat, 3–5 req/10 min for exam routes. (2) Branded favicon via `app/icon.tsx` (32×32 PNG, "SE" in cyan/pink). (3) Social preview card via `app/opengraph-image.tsx` (1200×630 PNG with full brand treatment). (4) `layout.tsx` metadata updated with `metadataBase`, `openGraph`, and `twitter` fields. (5) Privacy policy page at `/privacy` covering Australian Privacy Act, children's privacy, third-party services, and data retention. Privacy Policy link added to splash screen footer |
 | **v0.13.0** | June 2026 | Landing page expansion and About OG image — Splash screen converted to scrollable landing page with Features (Chat/Practice/Exam cards), Exams (6 branded cards with year level ranges), Trust strip (No account / Free / Claude AI), and footer CTA. Hero remains full-screen above the fold. About OG image redesigned: San's photo fills the full 1200×630 card (full-bleed, objectFit cover), dark gradient overlay on bottom 68%, founder headline and wordmark anchored bottom-left |
 | **v0.14.0** | June 2026 | Added Bebras and Kangourou sans frontières (KSF) — both available in Chat, Practice, and Exam modes. Exam format prompts added to generate route (Bebras: 10 MC computational thinking tasks; Kangaroo: 10 MC with 5 options, competition-style maths). Year level dropdowns added for both. Landing page exam grid expanded to 8 cards (2×4 on desktop). OG image badge row updated to two rows of 4. Hero tagline shortened to fit all 8 names |
+| **v0.15.0** | June 2026 | Brain Break trivia zone and Feedback form added to landing page. `BreakZone.tsx` — collapsible panel with 6 category choices; Claude generates 5 fun MC questions per session with fun facts and per-answer feedback; score screen with emoji message. `FeedbackForm.tsx` — emoji mood picker (5 options) + optional text (500 chars); saves to new `Feedback` table in Neon (nullable userId so guests can submit). New API routes: `POST /api/trivia` (rate-limited 10/min) and `POST /api/feedback` (auth-optional). Prisma schema updated with `Feedback` model; `prisma db push` applied |
 
 ---
 
-*Document last updated: 30 June 2026 (v0.13). Updated alongside the codebase whenever routes, components, or UX decisions change.*
+*Document last updated: 30 June 2026 (v0.15). Updated alongside the codebase whenever routes, components, or UX decisions change.*
 *Author: Santrupta Mishra (San) — Founder, SelectEd*
