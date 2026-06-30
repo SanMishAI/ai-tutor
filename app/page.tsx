@@ -108,6 +108,25 @@ function Wordmark() {
   )
 }
 
+// Wordmark for light backgrounds (navy + orange, not gradient on sky-blue)
+function WordmarkLight({ small = false }: { small?: boolean }) {
+  return (
+    <div className="flex flex-col leading-none select-none">
+      <div className="font-black italic tracking-tight"
+        style={{ fontSize: small ? 19 : 24, fontFamily: '"Arial Black", system-ui', lineHeight: 1.05 }}>
+        <span style={{ color: "#000936" }}>Select</span><span style={{ color: "#E34C00" }}>Ed</span>
+      </div>
+      <div className="flex items-center gap-1 mt-0.5" style={{ fontSize: small ? 9 : 10, fontWeight: 600 }}>
+        <span style={{ color: "#0066CB" }}>Sharpen</span>
+        <span style={{ color: "#CBD5E1" }}>·</span>
+        <span style={{ color: "#000936" }}>Sit</span>
+        <span style={{ color: "#CBD5E1" }}>·</span>
+        <span style={{ color: "#E34C00" }}>Succeed.</span>
+      </div>
+    </div>
+  )
+}
+
 function AuthButton() {
   const { isSignedIn } = useUser()
   if (isSignedIn) {
@@ -570,6 +589,292 @@ export default function Home() {
 
   if (!splashDone) {
     return (
+      <div className="min-h-screen overflow-y-auto" style={{ backgroundColor: "#ffffff", color: "#0f172a" }}>
+
+        {/* ── NAV ── */}
+        <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-slate-100 shadow-sm">
+          <div className="max-w-6xl mx-auto px-5 sm:px-8 h-16 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <img src="/selected-logo.svg" alt="SelectEd" style={{ width: 36, height: 36, objectFit: "contain" }} />
+              <WordmarkLight />
+            </div>
+            <div className="hidden sm:flex items-center gap-6 text-sm font-medium" style={{ color: "#64748b" }}>
+              <a href="/about" className="hover:text-slate-900 transition-colors">Our story</a>
+              <a href="/pricing" className="hover:text-slate-900 transition-colors">Pricing</a>
+            </div>
+            <div className="flex items-center gap-2 sm:gap-3">
+              {isSignedIn ? (
+                <>
+                  <UserButton />
+                  <button onClick={() => setSplashDone(true)}
+                    className="text-sm font-bold px-4 py-2 rounded-lg transition-all hover:opacity-90"
+                    style={{ background: "#000936", color: "#FDC800" }}>
+                    Open app →
+                  </button>
+                </>
+              ) : (
+                <>
+                  <SignInButton mode="modal">
+                    <button className="text-sm font-medium px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors" style={{ color: "#475569" }}>
+                      Sign in
+                    </button>
+                  </SignInButton>
+                  <button onClick={() => setSplashDone(true)}
+                    className="text-sm font-bold px-4 py-2 rounded-lg transition-all hover:opacity-90 shadow-sm"
+                    style={{ background: "#000936", color: "#FDC800" }}>
+                    Get started →
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </nav>
+
+        {/* ── HERO ── */}
+        <div className="relative overflow-hidden" style={{ background: "linear-gradient(155deg, #f8fafc 0%, #eff6ff 55%, #fff7ed 100%)" }}>
+          <div className="absolute inset-0 pointer-events-none overflow-hidden">
+            <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full blur-3xl opacity-25" style={{ background: "#56DBFF" }} />
+            <div className="absolute -bottom-16 -left-16 w-72 h-72 rounded-full blur-3xl opacity-20" style={{ background: "#FDC800" }} />
+          </div>
+          <div className="relative max-w-6xl mx-auto px-5 sm:px-8 py-16 sm:py-24 lg:py-28">
+            <div className="inline-flex items-center gap-2 bg-white rounded-full px-4 py-1.5 border border-slate-200 shadow-sm mb-7">
+              <span className="w-2 h-2 rounded-full bg-green-500" style={{ animation: "pulse 2s infinite" }} />
+              <span className="text-xs font-semibold text-slate-600">Australia&apos;s AI-powered exam prep platform</span>
+            </div>
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black leading-tight max-w-3xl mb-6"
+              style={{ fontFamily: 'system-ui, -apple-system, sans-serif', color: "#0f172a" }}>
+              Give your child the edge in every major{" "}
+              <span style={{ color: "#0066CB" }}>Australian exam.</span>
+            </h1>
+            <p className="text-lg sm:text-xl max-w-2xl mb-8 leading-relaxed" style={{ color: "#475569" }}>
+              AI-powered tutoring across AMC, ICAS, NAPLAN, ATAR, Maths Olympiad, and more — personalised for your child&apos;s year level, at a fraction of the cost of a tutor.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 mb-8">
+              <button onClick={() => setSplashDone(true)}
+                className="px-8 py-4 rounded-xl font-bold text-base transition-all hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] shadow-lg"
+                style={{ background: "#000936", color: "#FDC800" }}>
+                Start free today →
+              </button>
+              <button onClick={() => document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth" })}
+                className="px-8 py-4 rounded-xl font-semibold text-base transition-all hover:bg-slate-50"
+                style={{ border: "2px solid #CBD5E1", color: "#475569" }}>
+                See how it works ↓
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-5 text-sm" style={{ color: "#64748b" }}>
+              {["No credit card required", "Works for Year 2–12", "Built by an Australian parent"].map(t => (
+                <span key={t} className="flex items-center gap-1.5">
+                  <span style={{ color: "#059669" }}>✓</span> {t}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── STATS STRIP ── */}
+        <div className="border-y border-slate-100 bg-white py-8">
+          <div className="max-w-4xl mx-auto px-5 sm:px-8 grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
+            {[
+              { n: "8", label: "Exams covered" },
+              { n: "Year 2–12", label: "All year levels" },
+              { n: "AI-powered", label: "Anthropic Claude" },
+              { n: "Free", label: "No card needed" },
+            ].map(({ n, label }) => (
+              <div key={label}>
+                <p className="font-black text-2xl sm:text-3xl" style={{ color: "#000936" }}>{n}</p>
+                <p className="text-sm mt-1" style={{ color: "#94a3b8" }}>{label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── PROBLEM ── */}
+        <div className="py-16 sm:py-20" style={{ background: "#f8fafc" }}>
+          <div className="max-w-4xl mx-auto px-5 sm:px-8">
+            <p className="text-xs font-bold tracking-widest uppercase text-center mb-3" style={{ color: "#0066CB" }}>The challenge</p>
+            <h2 className="text-3xl sm:text-4xl font-black text-center mb-4" style={{ color: "#0f172a" }}>
+              Exam prep shouldn&apos;t mean $100/hr tutors
+            </h2>
+            <p className="text-center text-base max-w-2xl mx-auto mb-12 leading-relaxed" style={{ color: "#64748b" }}>
+              Most families face the same frustrating choice: expensive tutor centres, generic platforms built for overseas curricula, or buying a separate workbook for each competition.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+              {[
+                { icon: "💸", title: "Tutoring is expensive", desc: "Private tutors cost $80–$150/hr. A full exam season adds up to thousands." },
+                { icon: "🌐", title: "Generic tools don't fit", desc: "Most platforms are built for the US or UK — not AMC, ICAS, or NAPLAN." },
+                { icon: "📚", title: "Everything is fragmented", desc: "8 different exams means 8 different resources. No single place covers them all." },
+              ].map(({ icon, title, desc }) => (
+                <div key={title} className="rounded-2xl p-6 bg-white border border-slate-200 shadow-sm">
+                  <span className="text-3xl mb-4 block">{icon}</span>
+                  <h3 className="font-bold text-slate-800 mb-2">{title}</h3>
+                  <p className="text-slate-500 text-sm leading-relaxed">{desc}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── HOW IT WORKS ── */}
+        <div id="how-it-works" className="py-16 sm:py-20 bg-white">
+          <div className="max-w-4xl mx-auto px-5 sm:px-8">
+            <p className="text-xs font-bold tracking-widest uppercase text-center mb-3" style={{ color: "#0066CB" }}>How SelectEd works</p>
+            <h2 className="text-3xl sm:text-4xl font-black text-center mb-4" style={{ color: "#0f172a" }}>Four ways your child learns</h2>
+            <p className="text-center text-base max-w-xl mx-auto mb-12 leading-relaxed" style={{ color: "#64748b" }}>Pick the mode that fits how they feel like studying today.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              {[
+                { icon: "💬", title: "AI Chat Tutor", badge: "Socratic method", desc: "Your child asks questions and the AI guides them through problems step-by-step — it never just hands over the answer. Builds real, lasting understanding.", color: "#0066CB", bg: "#EFF6FF" },
+                { icon: "📝", title: "Practice Problems", badge: "Exam-style questions", desc: "Structured practice with up to 5 guided attempts before the full solution appears. Calibrated difficulty for each exam and year level.", color: "#059669", bg: "#ECFDF5" },
+                { icon: "⏱️", title: "Mock Exams", badge: "Timed & graded", desc: "Sit a full timed exam, get instant results, then review every single mistake with an AI walkthrough. Builds real exam confidence.", color: "#E34C00", bg: "#FFF7ED" },
+                { icon: "⛏️", title: "Adventure Mode", badge: "Gamified learning", desc: "A Minecraft-inspired world where chapters unlock progressively. Keeps reluctant learners engaged through play — they're learning without realising it.", color: "#16A34A", bg: "#F0FDF4" },
+              ].map(({ icon, title, badge, desc, color, bg }) => (
+                <div key={title} className="rounded-2xl p-6 border border-slate-200 shadow-sm bg-white flex flex-col gap-3">
+                  <div className="flex items-start justify-between">
+                    <span className="text-3xl">{icon}</span>
+                    <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: bg, color }}>{badge}</span>
+                  </div>
+                  <h3 className="font-bold text-slate-900 text-lg">{title}</h3>
+                  <p className="text-slate-500 text-sm leading-relaxed flex-1">{desc}</p>
+                  <button onClick={() => setSplashDone(true)} className="text-xs font-semibold text-left transition-colors hover:opacity-80" style={{ color }}>
+                    Try it free →
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── EXAMS ── */}
+        <div className="py-16 sm:py-20" style={{ background: "#f8fafc" }}>
+          <div className="max-w-4xl mx-auto px-5 sm:px-8">
+            <p className="text-xs font-bold tracking-widest uppercase text-center mb-3" style={{ color: "#0066CB" }}>Coverage</p>
+            <h2 className="text-3xl sm:text-4xl font-black text-center mb-4" style={{ color: "#0f172a" }}>8 Australian exams, one platform</h2>
+            <p className="text-center text-base max-w-xl mx-auto mb-12 leading-relaxed" style={{ color: "#64748b" }}>Questions, difficulty, and topics calibrated for each exam and year level — not generic AI output.</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {[
+                { short: "AMC", full: "Australian Mathematics Competition", years: "Year 3–12", color: "#0066CB" },
+                { short: "Olympiad", full: "Maths Olympiad", years: "Year 4–10", color: "#7C3AED" },
+                { short: "ACER", full: "ACER Selective", years: "Year 3–9", color: "#DB2777" },
+                { short: "ICAS", full: "ICAS", years: "Year 2–12", color: "#059669" },
+                { short: "ATAR", full: "ATAR", years: "Year 11–12", color: "#D97706" },
+                { short: "NAPLAN", full: "NAPLAN", years: "Year 3, 5, 7, 9", color: "#E34C00" },
+                { short: "Bebras", full: "Bebras Computing", years: "Year 3–12", color: "#0891B2" },
+                { short: "KSF", full: "Kangourou sans frontières", years: "Year 3–12", color: "#9333EA" },
+              ].map(({ short, full, years, color }) => (
+                <div key={short} className="rounded-xl p-4 bg-white border border-slate-200 shadow-sm">
+                  <p className="font-black text-xl mb-1" style={{ color }}>{short}</p>
+                  <p className="text-slate-700 text-sm font-medium leading-snug">{full}</p>
+                  <p className="text-xs mt-1" style={{ color: "#94a3b8" }}>{years}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── FOUNDER ── */}
+        <div className="py-16 sm:py-20 bg-white">
+          <div className="max-w-3xl mx-auto px-5 sm:px-8">
+            <div className="rounded-2xl border border-slate-200 shadow-sm p-8 sm:p-10 flex flex-col sm:flex-row gap-8 items-center">
+              <div className="w-24 h-24 rounded-full overflow-hidden shrink-0" style={{ outline: "3px solid #FDC800", outlineOffset: 3 }}>
+                <img src="/san.jpeg" alt="San Mishra" className="w-full h-full object-cover" />
+              </div>
+              <div className="text-center sm:text-left">
+                <p className="text-xl sm:text-2xl font-black leading-snug mb-3" style={{ color: "#0f172a" }}>
+                  &ldquo;I built the tool I wished existed when my own son was preparing for selective school.&rdquo;
+                </p>
+                <p className="text-sm mb-4" style={{ color: "#94a3b8" }}>San Mishra · Director, Global Consulting · Melbourne dad</p>
+                <a href="/about" className="text-sm font-semibold hover:underline transition-colors" style={{ color: "#0066CB" }}>Read our story →</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── PRICING ── */}
+        <div className="py-16 sm:py-20" style={{ background: "#f8fafc" }}>
+          <div className="max-w-3xl mx-auto px-5 sm:px-8">
+            <p className="text-xs font-bold tracking-widest uppercase text-center mb-3" style={{ color: "#0066CB" }}>Pricing</p>
+            <h2 className="text-3xl sm:text-4xl font-black text-center mb-4" style={{ color: "#0f172a" }}>Simple, honest pricing</h2>
+            <p className="text-center text-base max-w-lg mx-auto mb-12 leading-relaxed" style={{ color: "#64748b" }}>Start free. Upgrade when you&apos;re ready.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="rounded-2xl bg-white border-2 border-slate-200 p-7 flex flex-col gap-5">
+                <div>
+                  <p className="font-black text-2xl" style={{ color: "#0f172a" }}>Free</p>
+                  <p className="text-4xl font-black mt-1" style={{ color: "#000936" }}>$0</p>
+                  <p className="text-sm mt-1" style={{ color: "#94a3b8" }}>Forever. No card needed.</p>
+                </div>
+                <ul className="space-y-2.5 text-sm flex-1" style={{ color: "#475569" }}>
+                  {["All 8 exams & year levels", "AI Chat Tutor (unlimited)", "Practice mode", "Mock exams with instant grading", "Adventure Mode", "Guest mode — no sign-up needed"].map(f => (
+                    <li key={f} className="flex items-center gap-2.5"><span style={{ color: "#059669" }}>✓</span>{f}</li>
+                  ))}
+                </ul>
+                <button onClick={() => setSplashDone(true)}
+                  className="w-full py-3 rounded-xl font-bold text-sm transition-all hover:bg-slate-900 hover:text-white"
+                  style={{ border: "2px solid #000936", color: "#000936", background: "white" }}>
+                  Start for free →
+                </button>
+              </div>
+              <div className="rounded-2xl border-2 p-7 flex flex-col gap-5 relative overflow-hidden" style={{ background: "#000936", borderColor: "#FDC800" }}>
+                <div className="absolute top-5 right-5">
+                  <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: "#FDC800", color: "#000936" }}>Coming soon</span>
+                </div>
+                <div>
+                  <p className="font-black text-2xl text-white">Premium</p>
+                  <p className="text-4xl font-black mt-1" style={{ color: "#FDC800" }}>$9.99<span className="text-base font-medium" style={{ color: "#64748b" }}>/mo</span></p>
+                  <p className="text-sm mt-1" style={{ color: "#94a3b8" }}>Everything in Free, plus:</p>
+                </div>
+                <ul className="space-y-2.5 text-sm flex-1" style={{ color: "#cbd5e1" }}>
+                  {["Progress tracking across sessions", "Streak badges & leaderboard", "Priority AI responses", "Downloadable practice packs", "Parent dashboard", "Weekly progress reports by email"].map(f => (
+                    <li key={f} className="flex items-center gap-2.5"><span style={{ color: "#FDC800" }}>✓</span>{f}</li>
+                  ))}
+                </ul>
+                <button disabled className="w-full py-3 rounded-xl font-bold text-sm opacity-60 cursor-not-allowed" style={{ background: "#FDC800", color: "#000936" }}>
+                  Join waitlist
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── FINAL CTA ── */}
+        <div className="py-16 sm:py-24 bg-white">
+          <div className="max-w-2xl mx-auto px-5 sm:px-8 text-center">
+            <h2 className="text-3xl sm:text-4xl font-black mb-4" style={{ color: "#0f172a" }}>
+              Ready to give your child a head start?
+            </h2>
+            <p className="text-base max-w-lg mx-auto mb-8 leading-relaxed" style={{ color: "#64748b" }}>
+              Free to start. No sign-up required. Just pick an exam and begin.
+            </p>
+            <button onClick={() => setSplashDone(true)}
+              className="px-10 py-4 rounded-xl font-bold text-base transition-all hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] shadow-lg"
+              style={{ background: "#000936", color: "#FDC800" }}>
+              Start for free today →
+            </button>
+          </div>
+        </div>
+
+        {/* ── FOOTER ── */}
+        <footer className="border-t border-slate-100 py-10" style={{ background: "#f8fafc" }}>
+          <div className="max-w-6xl mx-auto px-5 sm:px-8 flex flex-col sm:flex-row items-center justify-between gap-5">
+            <div className="flex flex-col items-center sm:items-start gap-1">
+              <WordmarkLight small />
+              <p className="text-xs mt-1" style={{ color: "#94a3b8" }}>Made in Melbourne 🇦🇺</p>
+            </div>
+            <div className="flex flex-wrap justify-center gap-5 text-xs" style={{ color: "#94a3b8" }}>
+              <a href="/about" className="hover:text-slate-700 transition-colors">Our story</a>
+              <a href="/pricing" className="hover:text-slate-700 transition-colors">Pricing</a>
+              <a href="/leaderboard" className="hover:text-slate-700 transition-colors">Leaderboard</a>
+              <a href="/privacy" className="hover:text-slate-700 transition-colors">Privacy</a>
+            </div>
+            <p className="text-xs" style={{ color: "#cbd5e1" }}>© 2025 SelectEd. All rights reserved.</p>
+          </div>
+        </footer>
+
+      </div>
+    )
+  }
+
+  // ── OLD dark splash below — replaced by new landing above. Keeping the HERO ──
+  if (false) {
+    return (
       <div className="overflow-y-auto" style={{ backgroundColor: "#000936", color: "#f1f5f9" }}>
 
         {/* ── HERO ── */}
@@ -762,23 +1067,23 @@ export default function Home() {
     <div className="h-[100dvh] flex flex-col bg-gradient-to-br from-indigo-50 via-white to-purple-50 dark:from-gray-950 dark:via-gray-900 dark:to-indigo-950">
 
       {/* Header */}
-      <header className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 shadow-sm px-4 py-3 flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3">
+      <header className="bg-white border-b border-slate-100 shadow-sm px-4 py-2.5 flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setSidebarOpen(o => !o)}
-            className="text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-100 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-lg"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors text-lg"
             title="Toggle sidebar"
           >
             ☰
           </button>
-          <button onClick={() => setSplashDone(false)} className="text-left hover:opacity-80 transition-opacity">
-            <Wordmark />
+          <button onClick={() => setSplashDone(false)} className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <img src="/selected-logo.svg" alt="SelectEd" style={{ width: 30, height: 30, objectFit: "contain" }} />
+            <WordmarkLight small />
           </button>
         </div>
         <div className="flex items-center gap-3">
           <StreakBadge />
           <AuthButton />
-          <img src="/selected-logo.svg" alt="SelectEd" style={{ width: 44, height: 44, objectFit: "contain" }} />
         </div>
       </header>
 
@@ -833,22 +1138,23 @@ export default function Home() {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Mode</label>
-              <div className="flex border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm">
+              <label className="block text-xs font-semibold text-slate-400 mb-1">Mode</label>
+              <div className="flex rounded-xl overflow-hidden border border-slate-200 shadow-sm">
                 {(["chat", "practice", "exam", "adventure"] as const).map((m) => (
                   <button
                     key={m}
                     onClick={() => handleModeChange(m)}
-                    className={`px-3 py-2 text-sm font-medium transition-colors ${
-                      mode === m
-                        ? m === "adventure"
-                          ? "bg-green-700 text-white"
-                          : "bg-indigo-600 dark:bg-indigo-500 text-white"
-                        : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                    }`}
+                    className="px-3 py-2 text-sm font-semibold transition-all"
+                    style={mode === m ? {
+                      background: m === "adventure" ? "#14532d" : "#000936",
+                      color: m === "adventure" ? "#86efac" : "#FDC800",
+                    } : {
+                      background: "white",
+                      color: "#64748b",
+                    }}
                     title={m === "adventure" ? "Adventure Mode — mine through chapters!" : undefined}
                   >
-                    {m === "chat" ? "💬 Chat" : m === "practice" ? "📝 Practice" : m === "exam" ? "⏱️ Exam" : "⛏️"}
+                    {m === "chat" ? "💬 Chat" : m === "practice" ? "📝 Practice" : m === "exam" ? "⏱️ Exam" : "⛏️ Adventure"}
                   </button>
                 ))}
               </div>
