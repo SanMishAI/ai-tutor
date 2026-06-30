@@ -2,7 +2,11 @@ import { NextResponse } from "next/server"
 import Stripe from "stripe"
 import { db } from "@/lib/db"
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "", { apiVersion: "2026-06-24.dahlia" })
+function getStripe() {
+  const key = process.env.STRIPE_SECRET_KEY
+  if (!key || key.includes("REPLACE")) throw new Error("Stripe not configured")
+  return new Stripe(key, { apiVersion: "2026-06-24.dahlia" })
+}
 
 export async function POST(req: Request) {
   const body = await req.text()
@@ -10,6 +14,7 @@ export async function POST(req: Request) {
 
   let event: Stripe.Event
   try {
+    const stripe = getStripe()
     event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET ?? "")
   } catch {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 })

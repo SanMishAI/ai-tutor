@@ -3,11 +3,21 @@ import { NextResponse } from "next/server"
 import Stripe from "stripe"
 import { db } from "@/lib/db"
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "", { apiVersion: "2026-06-24.dahlia" })
+function getStripe() {
+  const key = process.env.STRIPE_SECRET_KEY
+  if (!key || key.startsWith("sk_live_REPLACE") || key.startsWith("sk_test_REPLACE"))
+    throw new Error("Stripe not configured")
+  return new Stripe(key, { apiVersion: "2026-06-24.dahlia" })
+}
 
 export async function POST() {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  let stripe: Stripe
+  try { stripe = getStripe() } catch {
+    return NextResponse.json({ error: "Payments not yet configured. Please try again soon." }, { status: 503 })
+  }
 
   // Get or create Stripe customer
   let sub = await db.subscription.findUnique({ where: { parentId: userId } })
