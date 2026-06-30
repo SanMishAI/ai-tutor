@@ -12,6 +12,7 @@ import BreakZone from "./components/BreakZone"
 import FeedbackForm from "./components/FeedbackForm"
 import WelcomeScreen from "./components/WelcomeScreen"
 import StreakBadge from "./components/StreakBadge"
+import ArcadeMode from "./components/arcade/ArcadeMode"
 import type { Message, Conversation } from "./types"
 
 const SUBJECTS = [
@@ -345,7 +346,7 @@ export default function Home() {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
-  const [mode, setMode] = useState<"chat" | "practice" | "exam">("chat")
+  const [mode, setMode] = useState<"chat" | "practice" | "exam" | "adventure">("chat")
   const [subject, setSubject] = useState(SUBJECTS[0])
   const [yearLevel, setYearLevel] = useState(YEAR_LEVELS[SUBJECTS[0]][0])
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -460,7 +461,7 @@ export default function Home() {
           subject,
           yearLevel,
           messages: msgs,
-          mode: mode === "exam" ? "chat" : mode,
+          mode: (mode === "exam" || mode === "adventure") ? "chat" : mode,
           createdAt: new Date().toISOString(),
         }
         updated = [...prev, newConv]
@@ -546,7 +547,7 @@ export default function Home() {
     setLoading(false)
   }
 
-  function handleModeChange(newMode: "chat" | "practice" | "exam") {
+  function handleModeChange(newMode: "chat" | "practice" | "exam" | "adventure") {
     setMode(newMode)
     setAttemptCount(0)
     setPracticeActive(false)
@@ -560,7 +561,7 @@ export default function Home() {
         onStart={(sub, yr, m) => {
           setSubject(sub)
           setYearLevel(yr)
-          setMode(m)
+          setMode(m as "chat" | "practice" | "exam" | "adventure")
           setIntroSeen(true)
         }}
       />
@@ -834,22 +835,36 @@ export default function Home() {
             <div>
               <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">Mode</label>
               <div className="flex border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden shadow-sm">
-                {(["chat", "practice", "exam"] as const).map((m) => (
+                {(["chat", "practice", "exam", "adventure"] as const).map((m) => (
                   <button
                     key={m}
                     onClick={() => handleModeChange(m)}
-                    className={`px-4 py-2 text-sm font-medium transition-colors ${
+                    className={`px-3 py-2 text-sm font-medium transition-colors ${
                       mode === m
-                        ? "bg-indigo-600 dark:bg-indigo-500 text-white"
+                        ? m === "adventure"
+                          ? "bg-green-700 text-white"
+                          : "bg-indigo-600 dark:bg-indigo-500 text-white"
                         : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
                     }`}
+                    title={m === "adventure" ? "Adventure Mode — mine through chapters!" : undefined}
                   >
-                    {m === "chat" ? "💬 Chat" : m === "practice" ? "📝 Practice" : "⏱️ Exam"}
+                    {m === "chat" ? "💬 Chat" : m === "practice" ? "📝 Practice" : m === "exam" ? "⏱️ Exam" : "⛏️"}
                   </button>
                 ))}
               </div>
             </div>
           </div>
+
+          {/* Adventure mode */}
+          {mode === "adventure" && (
+            <ArcadeMode
+              exam={subject}
+              yearLevel={yearLevel}
+              onSwitchToPractice={(ex, yr) => { setSubject(ex); setYearLevel(yr); handleModeChange("practice") }}
+              onSwitchToExam={(ex, yr) => { setSubject(ex); setYearLevel(yr); handleModeChange("exam") }}
+              onExit={() => handleModeChange("chat")}
+            />
+          )}
 
           {/* Exam mode */}
           {mode === "exam" && (
@@ -867,7 +882,7 @@ export default function Home() {
           )}
 
           {/* Chat / Practice window */}
-          {mode !== "exam" && (
+          {mode !== "exam" && mode !== "adventure" && (
             <div
               className="flex-1 overflow-y-auto rounded-2xl shadow-sm"
               style={mode === "chat" ? {

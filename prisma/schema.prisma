@@ -55,6 +55,20 @@ model Feedback {
   createdAt DateTime @default(now())
 }
 
+model ArcadeProgress {
+  id        String   @id @default(cuid())
+  userId    String
+  exam      String
+  chapter   String
+  stage     Int
+  stars     Int      @default(0)
+  xp        Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, exam, chapter, stage])
+  @@index([userId, exam])
+}
+
 model UserStreak {
   id                String   @id @default(cuid())
   userId            String   @unique

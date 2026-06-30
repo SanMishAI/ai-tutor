@@ -31,7 +31,7 @@ const MODES: { id: "chat" | "practice" | "exam"; emoji: string; label: string; d
 ]
 
 type Props = {
-  onStart: (subject: string, yearLevel: string, mode: "chat" | "practice" | "exam") => void
+  onStart: (subject: string, yearLevel: string, mode: "chat" | "practice" | "exam" | "adventure") => void
 }
 
 type Step = "pick-exam" | "pick-year"
@@ -128,6 +128,28 @@ export default function WelcomeScreen({ onStart }: Props) {
           <div className="w-full">
             <p className="text-xs font-semibold tracking-widest text-indigo-400 uppercase text-center mb-3">How do you want to start?</p>
             <div className="flex flex-col gap-3">
+
+              {/* ── Adventure Mode (first & featured) ── */}
+              <button
+                onClick={() => onStart(exam.subject, year, "adventure")}
+                className="flex items-center gap-4 px-5 py-4 rounded-2xl text-left transition-all hover:scale-[1.02] active:scale-[0.98]"
+                style={{
+                  background: "linear-gradient(135deg, #1a2e10 0%, #0f1a08 100%)",
+                  border: "2px solid #4a7c28",
+                  boxShadow: "0 4px 0 #1a2e10, 0 6px 20px rgba(74,124,40,0.3)",
+                }}
+                onMouseEnter={el => (el.currentTarget.style.boxShadow = "0 4px 0 #1a2e10, 0 6px 28px rgba(74,124,40,0.55)")}
+                onMouseLeave={el => (el.currentTarget.style.boxShadow = "0 4px 0 #1a2e10, 0 6px 20px rgba(74,124,40,0.3)")}
+              >
+                <span className="text-2xl shrink-0">⛏️</span>
+                <div>
+                  <p className="font-black text-sm" style={{ color: "#86efac", fontFamily: "'Press Start 2P', monospace", fontSize: 11, letterSpacing: "0.02em" }}>ADVENTURE MODE</p>
+                  <p className="text-green-700 text-xs mt-1">Mine through chapters, level up your knowledge</p>
+                </div>
+                <span className="ml-auto text-green-700">→</span>
+              </button>
+
+              {/* Standard modes */}
               {MODES.map(m => (
                 <button
                   key={m.id}
