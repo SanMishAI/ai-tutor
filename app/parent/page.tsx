@@ -363,7 +363,7 @@ function ParentDashboard() {
                       <p className="text-xs mt-0.5" style={{ color: "#94a3b8" }}>
                         {c.dailyLimit !== null
                           ? `${c.dailyLimit} questions/day`
-                          : sub.isPremium ? "Unlimited questions/day" : "20 questions/day (free plan)"}
+                          : sub.isPremium ? "Unlimited questions/day" : "10 questions/day (free plan)"}
                         {" · "}
                         <button onClick={() => { setEditId(c.id); setEditLimit(c.dailyLimit?.toString() ?? "") }}
                           className="underline hover:text-slate-700 transition-colors">

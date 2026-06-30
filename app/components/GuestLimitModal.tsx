@@ -1,8 +1,9 @@
 "use client"
 
-import { SignInButton, SignUpButton } from "@clerk/nextjs"
+import { SignInButton } from "@clerk/nextjs"
+import CaptchaSignUpGate from "./CaptchaSignUpGate"
 
-const GUEST_DAILY_LIMIT = 20
+const GUEST_DAILY_LIMIT = 10
 
 type Reason = "limit" | "feature"
 
@@ -61,14 +62,14 @@ export default function GuestLimitModal({ reason, featureName, onClose }: Props)
               : "Sign up for a free 7-day trial to unlock every mode, unlimited questions, and child profiles."}
           </p>
 
-          <SignUpButton mode="modal">
+          <CaptchaSignUpGate>
             <button
               className="w-full py-3.5 rounded-xl font-bold text-base transition-all hover:opacity-90 shadow-sm"
               style={{ background: "#000936", color: "#FDC800" }}
             >
               Start free 7-day trial →
             </button>
-          </SignUpButton>
+          </CaptchaSignUpGate>
 
           <SignInButton mode="modal">
             <button
