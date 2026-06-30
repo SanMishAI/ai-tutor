@@ -1158,7 +1158,7 @@ export default function Home() {
         {/* ── FAQ ── */}
         {(() => {
           const FAQS = [
-            { q: "Do I need to create an account to use SelectEd?", a: "No — you can use the AI tutor, practice mode, and Adventure Mode as a guest with no sign-up. Creating a parent account unlocks child profiles, progress tracking, and streaks, and starts your 7-day free trial." },
+            { q: "Do I need to create an account to use SelectEd?", a: "No — you can try the AI tutor and practice mode as a guest with no sign-up, up to 20 questions per day (resets at midnight). Exam Mode and Adventure Mode require an account. Creating a parent account starts your 7-day free trial, which gives unlimited questions, child profiles, progress tracking, and streaks." },
             { q: "How does the 7-day free trial work?", a: "When you start your trial, we collect your payment method (Apple Pay, Google Pay, or card) but charge nothing today. On day 8 your subscription begins at $9.99/month AUD. Cancel any time before the end of day 7 and you will never be charged." },
             { q: "How does my child log in?", a: "Parents create a child profile with a name, emoji avatar, and a 4-digit PIN. Children tap their avatar on the device your parent account is signed into, enter their PIN, and they're in — with access only to the exam content, never to billing or account settings." },
             { q: "Can I set a daily question limit for my child?", a: "Yes. From your parent dashboard you can set a per-child daily question limit, or leave it unlimited. You can update it any time." },
@@ -1369,8 +1369,8 @@ export default function Home() {
             style={{ background: "rgba(255,255,255,0.03)" }}
           >
             {([
-              { icon: "🚀", label: "No account required", sub: "Guest mode, zero friction — just open and start." },
-              { icon: "💸", label: "Free to use", sub: "No credit card, no paywall, no premium tier." },
+              { icon: "🚀", label: "No account required", sub: "20 free questions a day as a guest — just open and start." },
+              { icon: "💸", label: "Free to start", sub: "No credit card today. 7-day full-access trial, then $9.99/month AUD." },
               { icon: "🤖", label: "Powered by Claude AI", sub: "Anthropic's latest model as your personal tutor." },
             ] as const).map(({ icon, label, sub }) => (
               <div key={label} className="flex flex-col items-center gap-2 text-center">
