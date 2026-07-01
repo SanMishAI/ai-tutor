@@ -12,25 +12,86 @@ function practiceComplete(messages: Msg[]): boolean {
   return messages.some(m => m.role === "assistant" && m.content.includes("Start Chapter Test"))
 }
 
+// Convert simple LaTeX expressions to readable English
+function latexToSpeech(expr: string): string {
+  const s = expr
+    .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, "$1 over $2")
+    .replace(/\\sqrt\{([^}]+)\}/g, "square root of $1")
+    .replace(/\^2\b/g, " squared")
+    .replace(/\^3\b/g, " cubed")
+    .replace(/\^\{([^}]+)\}/g, " to the power of $1")
+    .replace(/\^(\d+)/g, " to the power of $1")
+    .replace(/\\times/g, " times ")
+    .replace(/\\div/g, " divided by ")
+    .replace(/\\cdot/g, " times ")
+    .replace(/\\leq/g, " less than or equal to ")
+    .replace(/\\geq/g, " greater than or equal to ")
+    .replace(/\\neq/g, " not equal to ")
+    .replace(/\\approx/g, " approximately ")
+    .replace(/\\pm/g, " plus or minus ")
+    .replace(/\\pi\b/g, " pi ")
+    .replace(/\\theta\b/g, " theta ")
+    .replace(/\\alpha\b/g, " alpha ")
+    .replace(/\\beta\b/g, " beta ")
+    .replace(/\\infty/g, " infinity ")
+    .replace(/\\left[([\[{]/g, "")
+    .replace(/\\right[)\]}\|]/g, "")
+    .replace(/[\\{}]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+  // If still looks too LaTeX-y after cleanup, skip it
+  return /[\\{}]/.test(s) ? "" : s
+}
+
 function stripForSpeech(text: string): string {
   return text
-    .replace(/\$\$[\s\S]*?\$\$/g, ", mathematical expression, ")
-    .replace(/\$[^$\n]+\$/g, ", mathematical expression, ")
+    // Remove SVG diagrams entirely
     .replace(/<svg[\s\S]*?<\/svg>/gi, "")
+    // Display math — try to say it, otherwise silence
+    .replace(/\$\$([\s\S]*?)\$\$/g, (_, expr) => {
+      const spoken = latexToSpeech(expr)
+      return spoken && spoken.length < 80 ? `. ${spoken}.` : ". "
+    })
+    // Inline math — try to say it, otherwise silence
+    .replace(/\$([^$\n]{1,60})\$/g, (_, expr) => {
+      const spoken = latexToSpeech(expr)
+      // If it's just a number or simple expression, say it inline
+      if (/^\d+(\.\d+)?$/.test(expr.trim())) return expr.trim()
+      return spoken && spoken.length < 50 ? ` ${spoken} ` : " "
+    })
+    // Remove all remaining $ signs (unclosed/complex math)
+    .replace(/\$/g, "")
+    // Remove ALL emojis using Unicode property escape
+    .replace(/\p{Extended_Pictographic}/gu, "")
+    // Remove markdown formatting
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .replace(/\*([^*]+)\*/g, "$1")
     .replace(/#{1,6}\s+/g, "")
-    .replace(/📌\s*/g, "")
-    .replace(/[🙋💡🎉✅❌🎯📖✏️🔍]/g, "")
     .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
     .replace(/`[^`]+`/g, "")
-    .replace(/\n{2,}/g, ". ")
-    .replace(/\n/g, " ")
-    .replace(/[•\-*]\s/g, ". ")
-    .replace(/\*\*/g, "").replace(/\*/g, "")
     .replace(/_{1,2}([^_]+)_{1,2}/g, "$1")
+    // Bullets/lists → natural pauses
+    .replace(/^\s*[-*•]\s+/gm, ". ")
+    // Paragraph breaks → sentence pause
+    .replace(/\n{2,}/g, ". ")
+    .replace(/\n/g, ", ")
+    // Collapse whitespace
     .replace(/\s{2,}/g, " ")
+    .replace(/[.]{2,}/g, ".")
     .trim()
+}
+
+// Find the last natural speech boundary (sentence end or paragraph) in text
+function findSpeakBoundary(text: string): number {
+  if (text.length < 40) return -1
+  let last = -1
+  for (let i = 20; i < text.length - 1; i++) {
+    const c = text[i]
+    const n = text[i + 1]
+    if ((c === "." || c === "!" || c === "?") && (n === " " || n === "\n")) last = i + 1
+    else if (c === "\n" && n === "\n") last = i + 2
+  }
+  return last
 }
 
 function MD({ children }: { children: string }) {
@@ -59,7 +120,7 @@ export default function StudyChat({
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
 
-  // Voice: use ref so sendToAI (async) always sees the latest value, not a stale closure
+  // voiceRef mirrors voiceEnabled — lets sendToAI (async) always read the latest value
   const [voiceEnabled, setVoiceEnabled] = useState(true)
   const voiceRef = useRef(true)
 
@@ -74,21 +135,36 @@ export default function StudyChat({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null)
   const synthRef = useRef<SpeechSynthesis | null>(null)
+  const voiceObjRef = useRef<SpeechSynthesisVoice | null>(null)
 
-  // Keep messagesRef current so handleSend never has a stale messages closure
   useEffect(() => { messagesRef.current = messages }, [messages])
 
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const w = window as any
     setSpeechSupported(!!(w.SpeechRecognition || w.webkitSpeechRecognition))
+
     if (window.speechSynthesis) {
       setTtsSupported(true)
       synthRef.current = window.speechSynthesis
+
+      function pickVoice() {
+        const voices = window.speechSynthesis.getVoices()
+        // Prefer Google voices (Chrome, best quality), then Neural/Natural, then any English
+        voiceObjRef.current =
+          voices.find(v => v.name.toLowerCase().includes("google") && v.lang.startsWith("en")) ??
+          voices.find(v => (v.name.includes("Neural") || v.name.includes("Natural")) && v.lang.startsWith("en")) ??
+          voices.find(v => v.lang === "en-AU") ??
+          voices.find(v => v.lang === "en-GB") ??
+          voices.find(v => v.lang.startsWith("en")) ??
+          null
+      }
+      pickVoice()
+      window.speechSynthesis.onvoiceschanged = pickVoice
     }
   }, [])
 
-  // Auto-start AI session
+  // Auto-start AI
   useEffect(() => {
     if (started.current) return
     started.current = true
@@ -99,37 +175,17 @@ export default function StudyChat({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
-  function speak(text: string) {
+  // Speak a chunk of plain text (queued — multiple calls play in order)
+  function speakChunk(text: string) {
     if (!voiceRef.current || !synthRef.current) return
-    synthRef.current.cancel()
-    const clean = stripForSpeech(text)
-    if (!clean.trim()) return
-
+    const clean = stripForSpeech(text).trim()
+    if (!clean) return
     const utter = new SpeechSynthesisUtterance(clean)
-    utter.rate = 0.92
+    utter.rate = 1.02   // very slightly faster than default — sounds more natural
     utter.pitch = 1
     utter.volume = 1
-
-    function doSpeak() {
-      if (!synthRef.current) return
-      const voices = synthRef.current.getVoices()
-      const preferred =
-        voices.find(v => v.lang.startsWith("en") && (v.name.includes("Neural") || v.name.includes("Natural") || v.name.includes("Google") || v.name.includes("Microsoft"))) ??
-        voices.find(v => v.lang.startsWith("en-AU")) ??
-        voices.find(v => v.lang.startsWith("en"))
-      if (preferred) utter.voice = preferred
-      synthRef.current.speak(utter)
-    }
-
-    // Voices load asynchronously in some browsers
-    if (synthRef.current.getVoices().length > 0) {
-      doSpeak()
-    } else {
-      synthRef.current.onvoiceschanged = () => {
-        if (synthRef.current) synthRef.current.onvoiceschanged = null
-        doSpeak()
-      }
-    }
+    if (voiceObjRef.current) utter.voice = voiceObjRef.current
+    synthRef.current.speak(utter)   // queues behind any already-playing utterance
   }
 
   function stopSpeaking() { synthRef.current?.cancel() }
@@ -141,19 +197,38 @@ export default function StudyChat({
     if (!next) stopSpeaking()
   }
 
-  function toggleListening() {
+  async function toggleListening() {
     setMicError(null)
     if (isListening) {
       recognitionRef.current?.stop()
       return
     }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const w = window as any
-    const SR = w.SpeechRecognition || w.webkitSpeechRecognition
-    if (!SR) {
-      setMicError("Speech recognition not supported in this browser. Please use Chrome or Edge.")
+    if (!w.SpeechRecognition && !w.webkitSpeechRecognition) {
+      setMicError("Speech recognition isn't supported here. Please use Chrome or Edge.")
       return
     }
+
+    // getUserMedia triggers the browser's native permission dialog on first use
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      stream.getTracks().forEach(t => t.stop())  // permission granted — release the stream
+    } catch (err: unknown) {
+      const name = (err as { name?: string })?.name ?? ""
+      if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+        setMicError("Microphone access was denied. Click the 🔒 icon in your address bar, set Microphone to Allow, then try again.")
+      } else if (name === "NotFoundError") {
+        setMicError("No microphone found. Please connect one and try again.")
+      } else {
+        setMicError("Could not access microphone. Check your browser settings.")
+      }
+      return
+    }
+
+    // Permission is now granted — start speech recognition
+    const SR = w.SpeechRecognition || w.webkitSpeechRecognition
     const rec = new SR()
     rec.lang = "en-AU"
     rec.interimResults = false
@@ -171,13 +246,14 @@ export default function StudyChat({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     rec.onerror = (e: any) => {
       setIsListening(false)
-      if (e.error === "not-allowed") setMicError("Microphone blocked. Allow mic access in your browser settings and reload.")
-      else if (e.error === "no-speech") setMicError("No speech detected — try again.")
-      else if (e.error === "network") setMicError("Network error during speech recognition.")
-      else setMicError(`Mic error: ${e.error}. Try again.`)
+      if (e.error === "aborted") return  // normal when user clicks stop
+      if (e.error === "no-speech") setMicError("No speech detected — tap the mic and speak clearly.")
+      else if (e.error === "network") setMicError("Network error during speech recognition. Check your connection.")
+      else setMicError(`Mic error (${e.error}). Please try again.`)
     }
+
     try { rec.start() } catch {
-      setMicError("Could not start microphone. Please check permissions and try again.")
+      setMicError("Failed to start microphone. Please try again.")
     }
   }
 
@@ -199,7 +275,7 @@ export default function StudyChat({
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Request failed" }))
-        setMessages(prev => { const u = [...prev]; u[u.length - 1] = { role: "assistant", content: `⚠️ ${err.error ?? "Something went wrong. Please try again."}` }; return u })
+        setMessages(prev => { const u = [...prev]; u[u.length - 1] = { role: "assistant", content: `⚠️ ${err.error ?? "Something went wrong."}` }; return u })
         setLoading(false)
         return
       }
@@ -207,19 +283,32 @@ export default function StudyChat({
       const reader = res.body?.getReader()
       const decoder = new TextDecoder()
       let full = ""
+      let spokenIdx = 0  // how many chars we've already dispatched to the TTS queue
 
       if (reader) {
         while (true) {
           const { done, value } = await reader.read()
-          if (done) break
+          if (done) {
+            // Speak any remaining text when stream finishes
+            if (voiceRef.current && spokenIdx < full.length) {
+              speakChunk(full.slice(spokenIdx))
+            }
+            break
+          }
           full += decoder.decode(value, { stream: true })
           const snap = full
           setMessages(prev => { const u = [...prev]; u[u.length - 1] = { role: "assistant", content: snap }; return u })
+
+          // Streaming TTS: speak completed sentences/paragraphs as they arrive
+          if (voiceRef.current) {
+            const boundary = findSpeakBoundary(full.slice(spokenIdx))
+            if (boundary > 0) {
+              speakChunk(full.slice(spokenIdx, spokenIdx + boundary))
+              spokenIdx += boundary
+            }
+          }
         }
       }
-
-      // Use voiceRef (not voiceEnabled) — avoids the stale closure problem
-      if (voiceRef.current) speak(full)
     } catch {
       setMessages(prev => { const u = [...prev]; u[u.length - 1] = { role: "assistant", content: "⚠️ Connection error. Please try again." }; return u })
     }
@@ -232,9 +321,7 @@ export default function StudyChat({
     if (loading || !input.trim()) return
     const text = input.trim()
     setInput("")
-    const userMsg: Msg = { role: "user", content: text }
-    // Use messagesRef to avoid stale closure on messages
-    sendToAI(messagesRef.current, userMsg)
+    sendToAI(messagesRef.current, { role: "user", content: text })
   }
 
   const showTestButton = practiceComplete(messages)
@@ -306,14 +393,14 @@ export default function StudyChat({
       {/* Input bar */}
       <div className="px-4 py-3 border-t border-slate-200 bg-white shrink-0">
         {micError && (
-          <div className="mb-2 px-3 py-2 rounded-xl text-xs font-medium" style={{ background: "#fef2f2", color: "#dc2626" }}>
-            {micError}{" "}
-            <button onClick={() => setMicError(null)} className="underline ml-1">Dismiss</button>
+          <div className="mb-2 px-3 py-2 rounded-xl text-xs font-medium flex items-start gap-2" style={{ background: "#fef2f2", color: "#dc2626" }}>
+            <span className="flex-1">{micError}</span>
+            <button onClick={() => setMicError(null)} className="font-bold shrink-0">✕</button>
           </div>
         )}
         {showTestButton && (
           <p className="text-xs text-center mb-2 font-medium" style={{ color: "#94a3b8" }}>
-            Practice done! Ask anything or click the button above to start the test.
+            Practice done! Ask anything or tap the button above to start the test.
           </p>
         )}
         <div className="flex gap-2">
@@ -327,16 +414,15 @@ export default function StudyChat({
                 ? { background: "#dc2626", borderColor: "#dc2626", color: "white" }
                 : { background: "white", borderColor: "#e2e8f0", color: "#64748b" }}
             >
-              {isListening ? (
-                <span className="text-sm font-bold animate-pulse">⏹</span>
-              ) : (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-                  <line x1="12" y1="19" x2="12" y2="23"/>
-                  <line x1="8" y1="23" x2="16" y2="23"/>
-                </svg>
-              )}
+              {isListening
+                ? <span className="text-sm font-bold animate-pulse">⏹</span>
+                : <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+                    <line x1="12" y1="19" x2="12" y2="23"/>
+                    <line x1="8" y1="23" x2="16" y2="23"/>
+                  </svg>
+              }
             </button>
           )}
           <input
