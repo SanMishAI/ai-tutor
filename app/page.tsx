@@ -435,6 +435,14 @@ export default function Home() {
     if (s) setChildSession(s)
   }, [])
 
+  // Skip landing page for returning users
+  useEffect(() => {
+    if (localStorage.getItem("selected_intro_seen") === "1") {
+      setSplashDone(true)
+      setIntroSeen(true)
+    }
+  }, [])
+
   // Load today's guest question count from localStorage
   useEffect(() => {
     try {
@@ -485,6 +493,7 @@ export default function Home() {
     setShowChildLogin(false)
     setSplashDone(true)
     setIntroSeen(true)
+    localStorage.setItem("selected_intro_seen", "1")
   }
 
   function handleChildLogout() {
@@ -492,6 +501,7 @@ export default function Home() {
     setChildSession(null)
     setSplashDone(false)
     setIntroSeen(false)
+    localStorage.removeItem("selected_intro_seen")
   }
 
   function openMathCaptcha() {
@@ -793,6 +803,7 @@ export default function Home() {
           setYearLevel(yr)
           setMode(m as "chat" | "practice" | "exam" | "adventure" | "study")
           setIntroSeen(true)
+          localStorage.setItem("selected_intro_seen", "1")
         }}
         onBack={() => setSplashDone(false)}
       />
