@@ -22,18 +22,18 @@ const SECURITY_HEADERS = [
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      // Scripts: self + Clerk + Stripe + Vercel analytics
-      "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://clerk.selected-ed.vercel.app https://*.clerk.accounts.dev https://js.stripe.com https://va.vercel-scripts.com",
+      // Scripts: self + Clerk + Stripe + Vercel analytics + Cloudflare Turnstile (Clerk bot protection)
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://clerk.selected-ed.vercel.app https://*.clerk.accounts.dev https://js.stripe.com https://va.vercel-scripts.com https://challenges.cloudflare.com",
       // Styles: self + Google Fonts + KaTeX inline styles
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net",
       // Fonts: self + Google Fonts + KaTeX
       "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net data:",
       // Images: self + data URIs + Clerk avatar CDN + san.jpeg served from self
       "img-src 'self' data: blob: https://*.clerk.com https://*.clerk.dev",
-      // Connections: self + Anthropic API (proxied via /api/chat) + Clerk + Stripe + Neon
-      "connect-src 'self' https://*.clerk.accounts.dev https://clerk.selected-ed.vercel.app https://api.stripe.com https://*.neon.tech wss://*.clerk.accounts.dev",
-      // Frames: Stripe Checkout loads in an iframe
-      "frame-src https://js.stripe.com https://hooks.stripe.com",
+      // Connections: self + Anthropic API (proxied via /api/chat) + Clerk + Stripe + Neon + Cloudflare Turnstile
+      "connect-src 'self' https://*.clerk.accounts.dev https://clerk.selected-ed.vercel.app https://api.stripe.com https://*.neon.tech wss://*.clerk.accounts.dev https://challenges.cloudflare.com",
+      // Frames: Stripe Checkout + Cloudflare Turnstile (Clerk bot protection widget)
+      "frame-src https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com",
       // Workers: none
       "worker-src 'none'",
       // Block object/embed
