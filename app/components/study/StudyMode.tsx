@@ -3,13 +3,11 @@
 import { useState, useEffect } from "react"
 import { CHAPTERS } from "@/lib/chapters"
 import ChapterPicker from "./ChapterPicker"
-import TheoryPhase from "./TheoryPhase"
-import ExamplesPhase from "./ExamplesPhase"
-import PracticePhase from "./PracticePhase"
+import StudyChat from "./StudyChat"
 import TestPhase from "./TestPhase"
 import ChapterResults from "./ChapterResults"
 
-export type Phase = "pick" | "theory" | "examples" | "practice" | "test" | "results"
+export type Phase = "pick" | "chat" | "test" | "results"
 
 export type TestResult = {
   score: number
@@ -37,9 +35,7 @@ export default function StudyMode({
 
   const chapters = CHAPTERS[exam] ?? []
 
-  useEffect(() => {
-    fetchProgress()
-  }, [exam])
+  useEffect(() => { fetchProgress() }, [exam])
 
   async function fetchProgress() {
     const headers: Record<string, string> = {}
@@ -68,15 +64,13 @@ export default function StudyMode({
 
   function selectChapter(ch: string) {
     setChapter(ch)
-    setPhase("theory")
-    setTestResult(null)
+    setPhase("chat")
     saveProgress(ch, 1)
   }
 
-  function advanceTo(next: Phase, ch: string) {
-    const phaseNum = next === "theory" ? 1 : next === "examples" ? 2 : next === "practice" ? 3 : next === "test" ? 4 : 4
-    setPhase(next)
-    saveProgress(ch, phaseNum)
+  function startTest() {
+    if (chapter) saveProgress(chapter, 4)
+    setPhase("test")
   }
 
   function finishTest(result: TestResult) {
@@ -84,7 +78,6 @@ export default function StudyMode({
     setPhase("results")
     const pct = result.total > 0 ? Math.round((result.score / result.total) * 100) : 0
     const passed = pct >= 80
-    // Only mark completed if ≥80%; otherwise save progress but not completed
     if (chapter) saveProgress(chapter, 4, passed, result.score, result.total)
   }
 
@@ -94,46 +87,32 @@ export default function StudyMode({
     setTestResult(null)
   }
 
-  const PHASE_ORDER: Phase[] = ["theory", "examples", "practice", "test"]
-  const phaseIndex = PHASE_ORDER.indexOf(phase)
-
   return (
     <div className="flex flex-col h-full" style={{ minHeight: 0 }}>
       {/* Top bar */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-200 bg-white shrink-0">
-        <button onClick={onExit} className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-all" style={{ color: "#64748b" }}>
-          ← Exit Study
-        </button>
-        {chapter && (
+        {phase !== "pick" ? (
+          <button onClick={restart} className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-all" style={{ color: "#64748b" }}>
+            ← Chapters
+          </button>
+        ) : (
+          <button onClick={onExit} className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-all" style={{ color: "#64748b" }}>
+            ← Exit Study
+          </button>
+        )}
+        {chapter && phase !== "pick" && (
           <>
-            <span className="text-xs text-slate-400">|</span>
-            <button onClick={restart} className="text-xs font-semibold hover:underline" style={{ color: "#000936" }}>
-              {exam}
-            </button>
             <span className="text-slate-300">›</span>
-            <span className="text-xs font-semibold truncate max-w-[160px]" style={{ color: "#0f172a" }}>{chapter}</span>
+            <span className="text-xs font-semibold truncate max-w-[200px]" style={{ color: "#0f172a" }}>{chapter}</span>
           </>
         )}
-        {chapter && phase !== "pick" && phase !== "results" && (
-          <div className="ml-auto flex items-center gap-1">
-            {PHASE_ORDER.map((p, i) => (
-              <span
-                key={p}
-                className="text-xs px-2 py-0.5 rounded-full font-semibold"
-                style={{
-                  background: i === phaseIndex ? "#000936" : i < phaseIndex ? "#dcfce7" : "#f1f5f9",
-                  color: i === phaseIndex ? "#FDC800" : i < phaseIndex ? "#16a34a" : "#94a3b8",
-                }}
-              >
-                {p === "theory" ? "📖 Theory" : p === "examples" ? "💡 Examples" : p === "practice" ? "✏️ Practice" : "🎯 Test"}
-              </span>
-            ))}
-          </div>
+        {phase === "test" && (
+          <span className="ml-auto text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: "#000936", color: "#FDC800" }}>🎯 Test</span>
         )}
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
         {phase === "pick" && (
           <ChapterPicker
             exam={exam}
@@ -142,42 +121,26 @@ export default function StudyMode({
             onSelect={selectChapter}
           />
         )}
-        {phase === "theory" && chapter && (
-          <TheoryPhase
+
+        {phase === "chat" && chapter && (
+          <StudyChat
             exam={exam}
             yearLevel={yearLevel}
             chapter={chapter}
-            onNext={() => advanceTo("examples", chapter)}
+            onStartTest={startTest}
           />
         )}
-        {phase === "examples" && chapter && (
-          <ExamplesPhase
-            exam={exam}
-            yearLevel={yearLevel}
-            chapter={chapter}
-            onNext={() => advanceTo("practice", chapter)}
-            onBack={() => advanceTo("theory", chapter)}
-          />
-        )}
-        {phase === "practice" && chapter && (
-          <PracticePhase
-            exam={exam}
-            yearLevel={yearLevel}
-            chapter={chapter}
-            childToken={childToken}
-            onNext={() => advanceTo("test", chapter)}
-            onBack={() => advanceTo("examples", chapter)}
-          />
-        )}
+
         {phase === "test" && chapter && (
           <TestPhase
             exam={exam}
             yearLevel={yearLevel}
             chapter={chapter}
             onFinish={finishTest}
-            onBack={() => advanceTo("practice", chapter)}
+            onBack={() => setPhase("chat")}
           />
         )}
+
         {phase === "results" && chapter && testResult && (
           <ChapterResults
             chapter={chapter}

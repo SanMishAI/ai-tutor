@@ -24,18 +24,20 @@ const YEAR_LEVELS: Record<string, string[]> = {
   "Kangourou sans frontières (KSF)":          ["Year 3–4 (Känguru)", "Year 5–6 (Cadet)", "Year 7–8 (Junior)", "Year 9–10 (Student)", "Year 11–12 (Senior)"],
 }
 
-const MODES: { id: "chat" | "practice" | "exam"; emoji: string; label: string; desc: string }[] = [
+const MODES: { id: "study" | "chat" | "practice" | "exam"; emoji: string; label: string; desc: string }[] = [
+  { id: "study",    emoji: "📖", label: "AI Study Session",  desc: "AI tutor walks you through the chapter — theory, examples, practice, then test" },
   { id: "chat",     emoji: "💬", label: "Chat with tutor",   desc: "Ask anything, get guided step-by-step" },
   { id: "practice", emoji: "📝", label: "Practice problems", desc: "Work through questions at your own pace" },
   { id: "exam",     emoji: "⏱️", label: "Timed exam",        desc: "Sit a full mock exam with the clock on" },
 ]
 
 type Props = {
-  onStart: (subject: string, yearLevel: string, mode: "chat" | "practice" | "exam" | "adventure") => void
+  onStart: (subject: string, yearLevel: string, mode: "chat" | "practice" | "exam" | "adventure" | "study") => void
   onBack?: () => void
 }
 
 type Step = "pick-exam" | "pick-year"
+type Mode = "study" | "chat" | "practice" | "exam" | "adventure"
 
 export default function WelcomeScreen({ onStart, onBack }: Props) {
   const [step, setStep] = useState<Step>("pick-exam")
@@ -149,7 +151,7 @@ export default function WelcomeScreen({ onStart, onBack }: Props) {
 
               {/* Adventure Mode */}
               <button
-                onClick={() => onStart(exam.subject, year, "adventure")}
+                onClick={() => onStart(exam.subject, year, "adventure" as Mode)}
                 className="flex items-center gap-4 px-5 py-4 rounded-2xl text-left transition-all hover:scale-[1.01] hover:shadow-md active:scale-[0.99] border-2 shadow-sm"
                 style={{ background: "#f0fdf4", borderColor: "#16a34a" }}
               >
@@ -167,15 +169,24 @@ export default function WelcomeScreen({ onStart, onBack }: Props) {
               {MODES.map(m => (
                 <button
                   key={m.id}
-                  onClick={() => onStart(exam.subject, year, m.id)}
-                  className="flex items-center gap-4 px-5 py-4 rounded-2xl border border-slate-200 bg-white text-left transition-all hover:scale-[1.01] hover:shadow-md active:scale-[0.99] shadow-sm"
+                  onClick={() => onStart(exam.subject, year, m.id as Mode)}
+                  className="flex items-center gap-4 px-5 py-4 rounded-2xl text-left transition-all hover:scale-[1.01] hover:shadow-md active:scale-[0.99] shadow-sm"
+                  style={m.id === "study" ? {
+                    background: "#000936",
+                    border: "2px solid #000936",
+                  } : {
+                    background: "white",
+                    border: "1px solid #e2e8f0",
+                  }}
                 >
                   <span className="text-2xl shrink-0">{m.emoji}</span>
                   <div>
-                    <p className="font-bold text-sm" style={{ color: "#0f172a" }}>{m.label}</p>
-                    <p className="text-xs mt-0.5" style={{ color: "#94a3b8" }}>{m.desc}</p>
+                    <p className="font-bold text-sm" style={{ color: m.id === "study" ? "#FDC800" : "#0f172a" }}>
+                      {m.label}{m.id === "study" && <span className="ml-2 text-xs font-semibold px-1.5 py-0.5 rounded-full" style={{ background: "#FDC800", color: "#000936" }}>Recommended</span>}
+                    </p>
+                    <p className="text-xs mt-0.5" style={{ color: m.id === "study" ? "rgba(255,255,255,0.65)" : "#94a3b8" }}>{m.desc}</p>
                   </div>
-                  <span className="ml-auto" style={{ color: "#cbd5e1" }}>→</span>
+                  <span className="ml-auto" style={{ color: m.id === "study" ? "#FDC800" : "#cbd5e1" }}>→</span>
                 </button>
               ))}
             </div>

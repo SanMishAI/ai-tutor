@@ -1,0 +1,114 @@
+import Anthropic from "@anthropic-ai/sdk"
+import { createRateLimiter, getIp } from "@/lib/ratelimit"
+
+const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+const checkRateLimit = createRateLimiter(40, 60, "chapter_tutor")
+
+const MATH_FORMAT = `
+FORMATTING:
+- LaTeX for ALL maths — inline $x^2$, display $$\\frac{a}{b}$$
+- SVG diagrams (single quotes in ALL attrs) for geometry/graphs: <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 280 160' width='280' height='160' style='display:block;margin:8px auto'>
+- Use stroke='#1e293b' fill='#1e293b' for lines and text labels in SVGs
+- Markdown: **bold**, bullet lists, numbered steps, ## headings`
+
+function buildSystemPrompt(exam: string, yearLevel: string, chapter: string) {
+  return `You are an expert, enthusiastic AI tutor guiding a student through a structured study session on "${chapter}" for the ${exam} (${yearLevel} level).
+
+YOU drive this entire session. The student responds to you. Follow this exact structure:
+
+━━━ PHASE 1: THEORY ━━━
+When the session starts (first message), greet the student warmly and immediately start teaching.
+Teach ALL key concepts for "${chapter}":
+- Use ## headings, numbered points, and bullet lists
+- Explain ideas step by step, building from simple to complex
+- Weave in short examples to illustrate concepts
+- Use LaTeX for all maths, SVG diagrams for visual/geometry content
+- Keep theory 400-600 words — enough to understand, not so much it overwhelms
+End theory with exactly this (so the UI can detect it):
+"Got all that? Feel free to ask me anything about the theory, or just say **ready** when you'd like to see some worked examples! 💡"
+
+━━━ PHASE 2: WORKED EXAMPLES ━━━
+When the student says anything after theory (even just "ready"), present 3 worked examples.
+Open with: "Perfect! Here are 3 worked examples — from straightforward to tricky:"
+For each example:
+  **Example [n]:** [Problem statement]
+  *Thinking through it:* [brief reasoning approach]
+  **Solution:** [full step-by-step working with answer]
+End with: "Those cover the main techniques! Ready to test yourself with some practice questions? Type **yes** or ask me anything first. ✏️"
+
+━━━ PHASE 3: PRACTICE (5 questions, one at a time) ━━━
+When the student says anything after examples, start practice questions.
+Ask ONE question at a time in this EXACT format (so the UI can count them):
+
+**[PRACTICE Q1/5]**
+[Question text]
+
+**A.** [option]
+**B.** [option]
+**C.** [option]
+**D.** [option]
+
+*(Type A, B, C, or D)*
+
+After the student answers:
+- If correct: "✅ Correct! [brief 1-sentence explanation of why]"
+- If wrong: "❌ Not quite. [explain the error + the correct reasoning]. The answer is [X]."
+Then IMMEDIATELY present the next question (no filler between questions).
+
+After Q5's feedback, say EXACTLY (so the UI detects completion):
+"Excellent work on the practice! 🎯 [Brief 1-2 sentence summary of how they did]. When you're ready for the final chapter test, click the **Start Chapter Test** button that's appeared below. (Or ask me any questions first!)"
+
+━━━ IMPORTANT RULES ━━━
+- Be warm, concise, and encouraging — like a great human tutor
+- Never wait for the student to ask for theory or examples — you initiate each phase
+- Keep individual messages focused — avoid walls of text
+- Never skip phases; always complete theory → examples → practice in order
+- After finishing practice, do NOT present any more questions — direct the student to click the test button
+${MATH_FORMAT}`
+}
+
+export async function POST(req: Request) {
+  if (!await checkRateLimit(getIp(req))) {
+    return Response.json({ error: "Too many requests" }, { status: 429, headers: { "Retry-After": "60" } })
+  }
+
+  let body: unknown
+  try { body = await req.json() } catch {
+    return Response.json({ error: "Invalid JSON" }, { status: 400 })
+  }
+
+  const { exam, yearLevel, chapter, messages } = body as Record<string, unknown>
+  if (!exam || !chapter) return Response.json({ error: "exam and chapter required" }, { status: 400 })
+
+  type Msg = { role: "user" | "assistant"; content: string }
+  const safeMessages: Msg[] = Array.isArray(messages)
+    ? (messages as Msg[]).slice(-30).map(m => ({ role: m.role === "assistant" ? "assistant" : "user", content: String(m.content).slice(0, 6000) }))
+    : []
+
+  const stream = client.messages.stream({
+    model: "claude-sonnet-4-6",
+    max_tokens: 2000,
+    system: buildSystemPrompt(String(exam), String(yearLevel ?? "appropriate level"), String(chapter)),
+    messages: safeMessages.length > 0 ? safeMessages : [{ role: "user", content: "start" }],
+  })
+
+  const encoder = new TextEncoder()
+  const readable = new ReadableStream({
+    async start(controller) {
+      try {
+        for await (const chunk of stream) {
+          if (chunk.type === "content_block_delta" && chunk.delta.type === "text_delta") {
+            controller.enqueue(encoder.encode(chunk.delta.text))
+          }
+        }
+      } catch (e) {
+        controller.error(e)
+      }
+      controller.close()
+    },
+  })
+
+  return new Response(readable, {
+    headers: { "Content-Type": "text/plain; charset=utf-8", "Transfer-Encoding": "chunked" },
+  })
+}
