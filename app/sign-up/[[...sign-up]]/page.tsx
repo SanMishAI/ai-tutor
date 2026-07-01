@@ -193,6 +193,8 @@ export default function SignUpPage() {
           className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
           style={{ color: "#0f172a" }}
         />
+        {/* Clerk mounts its Turnstile bot-protection widget here */}
+        <div id="clerk-captcha" />
         <button
           type="submit" disabled={loading}
           className="w-full py-3.5 rounded-xl font-bold text-sm transition-all hover:opacity-90 disabled:opacity-50 shadow-sm"
