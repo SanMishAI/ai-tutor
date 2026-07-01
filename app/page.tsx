@@ -16,6 +16,7 @@ import ArcadeMode from "./components/arcade/ArcadeMode"
 import ChildLoginScreen from "./components/ChildLoginScreen"
 import UpgradeModal from "./components/UpgradeModal"
 import GuestLimitModal from "./components/GuestLimitModal"
+import CaptchaSignUpGate from "./components/CaptchaSignUpGate"
 import type { Message, Conversation } from "./types"
 
 type ChildSession = { token: string; id: string; name: string; avatarEmoji: string }
@@ -407,6 +408,7 @@ export default function Home() {
   const [tHoneypot, setTHoneypot] = useState("")
   const [videoBgReady, setVideoBgReady] = useState(false)
   const [faqOpen, setFaqOpen] = useState<number | null>(null)
+  const [showStartChoice, setShowStartChoice] = useState(false)
 
   // Child session
   const [childSession, setChildSession] = useState<ChildSession | null>(null)
@@ -870,7 +872,7 @@ export default function Home() {
                       Sign in →
                     </button>
                   </SignInButton>
-                  <button onClick={() => setSplashDone(true)}
+                  <button onClick={() => setShowStartChoice(true)}
                     className="text-sm font-bold px-4 py-2 rounded-lg transition-all hover:opacity-90 shadow-sm"
                     style={{ background: "#000936", color: "#FDC800" }}>
                     Get started →
@@ -1008,7 +1010,7 @@ export default function Home() {
                   AI-powered tutoring across AMC, ICAS, NAPLAN, ATAR, Maths Olympiad, and more — personalised for your child&apos;s year level, at a fraction of the cost of a tutor.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 mb-8">
-                  <button onClick={() => setSplashDone(true)}
+                  <button onClick={() => setShowStartChoice(true)}
                     className="px-8 py-4 rounded-xl font-bold text-base transition-all hover:scale-[1.03] active:scale-[0.98] shadow-xl"
                     style={{ background: "#FDC800", color: "#000936" }}>
                     Start your 7-day free trial →
@@ -1162,7 +1164,7 @@ export default function Home() {
                   </div>
                   <h3 className="font-bold text-slate-900 text-lg">{title}</h3>
                   <p className="text-slate-500 text-sm leading-relaxed flex-1">{desc}</p>
-                  <button onClick={() => setSplashDone(true)} className="text-xs font-semibold text-left transition-colors hover:opacity-80" style={{ color }}>
+                  <button onClick={() => setShowStartChoice(true)} className="text-xs font-semibold text-left transition-colors hover:opacity-80" style={{ color }}>
                     Try it free →
                   </button>
                 </div>
@@ -1360,7 +1362,7 @@ export default function Home() {
                     <li key={f} className="flex items-center gap-2.5"><span style={{ color: "#059669" }}>✓</span>{f}</li>
                   ))}
                 </ul>
-                <button onClick={() => setSplashDone(true)}
+                <button onClick={() => setShowStartChoice(true)}
                   className="w-full py-3 rounded-xl font-bold text-sm transition-all hover:bg-slate-900 hover:text-white"
                   style={{ border: "2px solid #000936", color: "#000936", background: "white" }}>
                   Start for free →
@@ -1380,7 +1382,7 @@ export default function Home() {
                     <li key={f} className="flex items-center gap-2.5"><span style={{ color: "#FDC800" }}>✓</span>{f}</li>
                   ))}
                 </ul>
-                <button onClick={() => setSplashDone(true)}
+                <button onClick={() => setShowStartChoice(true)}
                   className="w-full py-3 rounded-xl font-bold text-sm transition-all hover:opacity-90"
                   style={{ background: "#FDC800", color: "#000936" }}>
                   Start free trial →
@@ -1439,7 +1441,7 @@ export default function Home() {
             <p className="text-base max-w-lg mx-auto mb-8 leading-relaxed" style={{ color: "#64748b" }}>
               Free to start. No sign-up required. Just pick an exam and begin.
             </p>
-            <button onClick={() => setSplashDone(true)}
+            <button onClick={() => setShowStartChoice(true)}
               className="px-10 py-4 rounded-xl font-bold text-base transition-all hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] shadow-lg"
               style={{ background: "#000936", color: "#FDC800" }}>
               Start for free today →
@@ -1463,6 +1465,52 @@ export default function Home() {
             <p className="text-xs" style={{ color: "#cbd5e1" }}>© 2026 SelectEd. All rights reserved.</p>
           </div>
         </footer>
+
+        {/* ── Start-choice modal ── */}
+        {showStartChoice && (
+          <div
+            className="fixed inset-0 z-[300] flex items-center justify-center p-4"
+            style={{ background: "rgba(0,9,54,0.82)" }}
+            onClick={() => setShowStartChoice(false)}
+          >
+            <div
+              className="bg-white rounded-2xl p-8 w-full max-w-sm shadow-2xl space-y-5"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="text-center">
+                <p className="text-3xl font-black italic tracking-tight" style={{ fontFamily: '"Arial Black", system-ui' }}>
+                  <span style={{ color: "#000936" }}>Select</span><span style={{ color: "#E34C00" }}>Ed</span>
+                </p>
+                <p className="text-xs font-semibold mt-0.5" style={{ color: "#0066CB" }}>Sharpen · Sit · Succeed</p>
+              </div>
+              <p className="text-center font-bold text-lg" style={{ color: "#0f172a" }}>How would you like to start?</p>
+              <CaptchaSignUpGate className="block w-full">
+                <button
+                  className="w-full py-3.5 rounded-xl font-bold text-sm transition-all hover:opacity-90 shadow-sm"
+                  style={{ background: "#000936", color: "#FDC800" }}
+                >
+                  Create account — 7-day free trial →
+                </button>
+              </CaptchaSignUpGate>
+              <div className="flex items-center gap-3">
+                <div className="h-px flex-1 bg-slate-200" />
+                <span className="text-xs" style={{ color: "#94a3b8" }}>or</span>
+                <div className="h-px flex-1 bg-slate-200" />
+              </div>
+              <button
+                onClick={() => { setShowStartChoice(false); setSplashDone(true) }}
+                className="w-full py-3 rounded-xl font-semibold text-sm border-2 transition-all hover:bg-slate-50"
+                style={{ borderColor: "#e2e8f0", color: "#475569" }}
+              >
+                Continue as guest (10 questions/day)
+              </button>
+              <p className="text-xs text-center" style={{ color: "#94a3b8" }}>
+                Already have an account?{" "}
+                <a href="/sign-in" className="font-semibold underline" style={{ color: "#0066CB" }}>Sign in</a>
+              </p>
+            </div>
+          </div>
+        )}
 
       </div>
     )
