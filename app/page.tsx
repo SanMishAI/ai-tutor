@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import ReactMarkdown from "react-markdown"
 import remarkMath from "remark-math"
 import rehypeKatex from "rehype-katex"
@@ -16,7 +17,6 @@ import ArcadeMode from "./components/arcade/ArcadeMode"
 import ChildLoginScreen from "./components/ChildLoginScreen"
 import UpgradeModal from "./components/UpgradeModal"
 import GuestLimitModal from "./components/GuestLimitModal"
-import CaptchaSignUpGate from "./components/CaptchaSignUpGate"
 import type { Message, Conversation } from "./types"
 
 type ChildSession = { token: string; id: string; name: string; avatarEmoji: string }
@@ -409,6 +409,11 @@ export default function Home() {
   const [videoBgReady, setVideoBgReady] = useState(false)
   const [faqOpen, setFaqOpen] = useState<number | null>(null)
   const [showStartChoice, setShowStartChoice] = useState(false)
+  const [showMathCaptcha, setShowMathCaptcha] = useState(false)
+  const [mathQ, setMathQ] = useState<[number, number]>([4, 7])
+  const [mathA, setMathA] = useState("")
+  const [mathErr, setMathErr] = useState("")
+  const router = useRouter()
 
   // Child session
   const [childSession, setChildSession] = useState<ChildSession | null>(null)
@@ -486,6 +491,26 @@ export default function Home() {
     setChildSession(null)
     setSplashDone(false)
     setIntroSeen(false)
+  }
+
+  function openMathCaptcha() {
+    const a = Math.ceil(Math.random() * 9)
+    const b = Math.ceil(Math.random() * 9)
+    setMathQ([a, b]); setMathA(""); setMathErr("")
+    setShowStartChoice(false)
+    setShowMathCaptcha(true)
+  }
+
+  function verifyMath() {
+    if (parseInt(mathA) !== mathQ[0] + mathQ[1]) {
+      setMathErr("Incorrect — try again")
+      const a = Math.ceil(Math.random() * 9)
+      const b = Math.ceil(Math.random() * 9)
+      setMathQ([a, b]); setMathA("")
+      return
+    }
+    setShowMathCaptcha(false)
+    router.push("/sign-up")
   }
 
   async function trackUsage(): Promise<boolean> {
@@ -1466,6 +1491,63 @@ export default function Home() {
           </div>
         </footer>
 
+        {/* ── Math CAPTCHA modal (top-level — no stacking context parent) ── */}
+        {showMathCaptcha && (
+          <div
+            className="fixed inset-0 z-[400] flex items-center justify-center p-4"
+            style={{ background: "rgba(0,9,54,0.82)" }}
+            onClick={() => setShowMathCaptcha(false)}
+          >
+            <div
+              className="bg-white rounded-2xl p-7 w-full max-w-xs shadow-2xl space-y-4"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="text-center space-y-1">
+                <p className="text-xs font-bold tracking-widest uppercase" style={{ color: "#0066CB" }}>
+                  Quick verification
+                </p>
+                <p className="text-xl font-black" style={{ color: "#0f172a" }}>
+                  What is{" "}
+                  <span style={{ color: "#0066CB" }}>{mathQ[0]}</span>
+                  {" + "}
+                  <span style={{ color: "#0066CB" }}>{mathQ[1]}</span>?
+                </p>
+                <p className="text-xs" style={{ color: "#94a3b8" }}>
+                  Just making sure you&apos;re human before we create your account.
+                </p>
+              </div>
+              {mathErr && (
+                <p className="text-sm text-center font-medium" style={{ color: "#dc2626" }}>{mathErr}</p>
+              )}
+              <input
+                type="number"
+                inputMode="numeric"
+                value={mathA}
+                onChange={e => { setMathA(e.target.value); setMathErr("") }}
+                onKeyDown={e => e.key === "Enter" && verifyMath()}
+                placeholder={`${mathQ[0]} + ${mathQ[1]} = ?`}
+                autoFocus
+                className="w-full border-2 border-slate-200 rounded-xl px-4 py-3 text-center text-xl font-bold focus:outline-none focus:border-blue-400"
+                style={{ color: "#0f172a" }}
+              />
+              <button
+                onClick={verifyMath}
+                className="w-full py-3 rounded-xl font-bold text-sm transition-all hover:opacity-90 shadow-sm"
+                style={{ background: "#000936", color: "#FDC800" }}
+              >
+                Verify &amp; continue →
+              </button>
+              <button
+                onClick={() => setShowMathCaptcha(false)}
+                className="w-full text-xs py-1 transition-colors hover:text-slate-600"
+                style={{ color: "#94a3b8" }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* ── Start-choice modal ── */}
         {showStartChoice && (
           <div
@@ -1484,14 +1566,13 @@ export default function Home() {
                 <p className="text-xs font-semibold mt-0.5" style={{ color: "#0066CB" }}>Sharpen · Sit · Succeed</p>
               </div>
               <p className="text-center font-bold text-lg" style={{ color: "#0f172a" }}>How would you like to start?</p>
-              <CaptchaSignUpGate className="block w-full">
-                <button
-                  className="w-full py-3.5 rounded-xl font-bold text-sm transition-all hover:opacity-90 shadow-sm"
-                  style={{ background: "#000936", color: "#FDC800" }}
-                >
-                  Create account — 7-day free trial →
-                </button>
-              </CaptchaSignUpGate>
+              <button
+                onClick={openMathCaptcha}
+                className="w-full py-3.5 rounded-xl font-bold text-sm transition-all hover:opacity-90 shadow-sm"
+                style={{ background: "#000936", color: "#FDC800" }}
+              >
+                Create account — 7-day free trial →
+              </button>
               <div className="flex items-center gap-3">
                 <div className="h-px flex-1 bg-slate-200" />
                 <span className="text-xs" style={{ color: "#94a3b8" }}>or</span>
