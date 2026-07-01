@@ -405,6 +405,7 @@ export default function Home() {
   const [captchaQ, setCaptchaQ] = useState<[number, number]>([3, 5])
   const [captchaA, setCaptchaA] = useState("")
   const [tHoneypot, setTHoneypot] = useState("")
+  const [videoBgReady, setVideoBgReady] = useState(false)
   const [faqOpen, setFaqOpen] = useState<number | null>(null)
 
   // Child session
@@ -808,6 +809,30 @@ export default function Home() {
             0%,100% { color: #FACC15; }
             50%     { color: #fff; text-shadow: 0 0 12px #FACC15; }
           }
+          @keyframes ai-orb-pulse {
+            0%,100% { transform: scale(1); opacity: 0.85; }
+            50%     { transform: scale(1.09); opacity: 1; }
+          }
+          @keyframes warm-glow {
+            0%,100% { transform: scale(1); opacity: 0.88; }
+            50%     { transform: scale(1.13); opacity: 1; }
+          }
+          @keyframes beam-pulse {
+            0%,100% { opacity: 0.32; }
+            50%     { opacity: 0.82; }
+          }
+          @keyframes particle-rise {
+            0%   { transform: translateY(0) scale(1); opacity: 0; }
+            15%  { opacity: 1; }
+            75%  { opacity: 0.42; }
+            100% { transform: translateY(-260px) scale(0.4); opacity: 0; }
+          }
+          @keyframes float-equation {
+            0%   { transform: translateY(0) translateX(0); opacity: 0; }
+            15%  { opacity: 0.65; }
+            85%  { opacity: 0.18; }
+            100% { transform: translateY(-280px) translateX(25px); opacity: 0; }
+          }
         `}</style>
 
         {/* ── NAV ── */}
@@ -856,12 +881,92 @@ export default function Home() {
           </div>
         </nav>
 
-        {/* ── HERO ── */}
-        <div className="relative overflow-hidden" style={{ background: "linear-gradient(155deg, #f8fafc 0%, #eff6ff 55%, #fff7ed 100%)" }}>
-          <div className="absolute inset-0 pointer-events-none overflow-hidden">
-            <div className="absolute -top-32 -right-32 w-96 h-96 rounded-full blur-3xl" style={{ background: "#56DBFF", animation: "pulse-orb 7s ease-in-out infinite" }} />
-            <div className="absolute -bottom-16 -left-16 w-72 h-72 rounded-full blur-3xl" style={{ background: "#FDC800", animation: "pulse-orb 9s ease-in-out 2s infinite" }} />
-            <div className="absolute top-1/2 left-1/3 w-64 h-64 rounded-full blur-3xl" style={{ background: "#E34C00", animation: "pulse-orb 11s ease-in-out 4s infinite", opacity: 0.08 }} />
+        {/* ── HERO ── cinematic dark + video background ── */}
+        <div className="relative overflow-hidden" style={{ background: "#000936", minHeight: "88vh" }}>
+
+          {/* Background video — plays /tutor-bg.mp4 when present; CSS scene shows otherwise */}
+          <video
+            className="absolute inset-0 w-full h-full object-cover"
+            autoPlay muted loop playsInline
+            onCanPlay={() => setVideoBgReady(true)}
+            style={{ zIndex: 0, opacity: videoBgReady ? 1 : 0, transition: "opacity 1.2s ease" }}
+          >
+            <source src="/tutor-bg.mp4" type="video/mp4" />
+          </video>
+
+          {/* Layered scene: overlay + animated CSS elements */}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden" style={{ zIndex: 1 }}>
+
+            {/* Dark overlay (thicker over CSS scene, lighter over video) */}
+            <div className="absolute inset-0" style={{
+              background: videoBgReady
+                ? "linear-gradient(135deg, rgba(0,9,54,0.78) 0%, rgba(0,9,54,0.58) 55%, rgba(0,9,54,0.78) 100%)"
+                : "linear-gradient(135deg, #000936 0%, #060e3f 30%, #0c1848 60%, #0d1135 100%)",
+              transition: "background 1.2s ease",
+            }} />
+
+            {/* CSS-animated tutor scene — hidden once real video loads */}
+            {!videoBgReady && (
+              <>
+                {/* AI Tutor Orb — glowing blue sphere upper-left */}
+                <div className="absolute rounded-full" style={{
+                  width: 340, height: 340,
+                  background: "radial-gradient(circle, rgba(86,219,255,0.88) 0%, rgba(0,102,203,0.55) 38%, transparent 68%)",
+                  filter: "blur(28px)",
+                  top: "8%", left: "8%",
+                  animation: "ai-orb-pulse 4.5s ease-in-out infinite",
+                }} />
+                <div className="absolute rounded-full" style={{
+                  width: 520, height: 520,
+                  background: "radial-gradient(circle, rgba(0,102,203,0.14) 0%, transparent 60%)",
+                  filter: "blur(50px)",
+                  top: "0%", left: "0%",
+                  animation: "ai-orb-pulse 4.5s ease-in-out 1s infinite",
+                }} />
+                {/* Warm student glow — right quadrant */}
+                <div className="absolute rounded-full" style={{
+                  width: 380, height: 380,
+                  background: "radial-gradient(circle, rgba(253,200,0,0.30) 0%, rgba(227,76,0,0.14) 50%, transparent 70%)",
+                  filter: "blur(38px)",
+                  top: "18%", right: "5%",
+                  animation: "warm-glow 6s ease-in-out infinite",
+                }} />
+                {/* Connection beam between tutor and student */}
+                <div className="absolute" style={{
+                  height: 2,
+                  background: "linear-gradient(90deg, rgba(86,219,255,0.6) 0%, rgba(253,200,0,0.45) 100%)",
+                  filter: "blur(3px)",
+                  top: "42%", left: "18%", right: "15%",
+                  animation: "beam-pulse 3.5s ease-in-out infinite",
+                }} />
+                {/* Rising particles */}
+                {Array.from({ length: 20 }).map((_, i) => (
+                  <div key={i} className="absolute rounded-full" style={{
+                    width: 2 + (i % 3),
+                    height: 2 + (i % 3),
+                    background: ["rgba(86,219,255,0.8)", "rgba(253,200,0,0.7)", "rgba(255,255,255,0.5)", "rgba(99,179,255,0.8)"][i % 4],
+                    left: `${(i * 4.8 + 4) % 88}%`,
+                    top: `${56 + (i % 5) * 8}%`,
+                    animation: `particle-rise ${3.5 + (i % 5)}s ease-out ${(i * 0.32) % 4}s infinite`,
+                  }} />
+                ))}
+                {/* Floating equations */}
+                {["y = mx + b", "E = mc²", "P(A) = n(A)/n(S)", "∫₀¹ f(x) dx", "ax² + bx + c = 0"].map((eq, i) => (
+                  <div key={eq} className="absolute font-mono select-none" style={{
+                    fontSize: 11 + (i % 3) * 2,
+                    color: i % 2 === 0 ? "rgba(86,219,255,0.42)" : "rgba(253,200,0,0.36)",
+                    left: `${(i * 18 + 5) % 72}%`,
+                    top: `${64 + (i % 4) * 6}%`,
+                    animation: `float-equation ${8 + i * 1.4}s ease-in-out ${i * 0.65}s infinite`,
+                    whiteSpace: "nowrap",
+                  }}>
+                    {eq}
+                  </div>
+                ))}
+              </>
+            )}
+
+            {/* Floating math symbols — always visible, even over video */}
             {["π", "∑", "√", "∫", "α", "β", "×", "≠", "∞", "Δ", "θ", "λ", "÷", "²", "⁻¹", "≈"].map((sym, i) => (
               <div key={sym} className="absolute select-none font-black"
                 style={{
@@ -869,82 +974,96 @@ export default function Home() {
                   bottom: `-20px`,
                   fontSize: `${14 + (i % 4) * 7}px`,
                   opacity: 0,
-                  color: ["#0066CB", "#FDC800", "#E34C00", "#059669", "#7C3AED"][i % 5],
+                  color: ["rgba(86,219,255,0.6)", "rgba(253,200,0,0.5)", "rgba(227,76,0,0.45)", "rgba(74,222,128,0.5)", "rgba(167,139,250,0.5)"][i % 5],
                   animation: `float-symbol ${7 + (i % 6)}s ease-in ${(i * 0.55) % 5}s infinite`,
-                  zIndex: 0,
                 }}>
                 {sym}
               </div>
             ))}
           </div>
-          <div className="relative max-w-6xl mx-auto px-5 sm:px-8 py-14 sm:py-20 lg:py-24">
+
+          {/* Bottom white fade — blends hero into light page sections */}
+          <div className="absolute bottom-0 left-0 right-0 h-28 pointer-events-none" style={{
+            background: "linear-gradient(to bottom, transparent, #ffffff)",
+            zIndex: 3,
+          }} />
+
+          {/* Hero content */}
+          <div className="relative max-w-6xl mx-auto px-5 sm:px-8 py-16 sm:py-24 lg:py-28" style={{ zIndex: 4 }}>
             <div className="grid lg:grid-cols-2 gap-10 lg:gap-16 items-center">
 
               {/* Left: text + CTAs */}
               <div>
-                <div className="inline-flex items-center gap-2 bg-white rounded-full px-4 py-1.5 border border-slate-200 shadow-sm mb-7">
-                  <span className="w-2 h-2 rounded-full bg-green-500" style={{ animation: "pulse 2s infinite" }} />
-                  <span className="text-xs font-semibold text-slate-600">Australia&apos;s AI-powered exam prep platform</span>
+                <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 border mb-7"
+                  style={{ background: "rgba(255,255,255,0.08)", borderColor: "rgba(255,255,255,0.2)", backdropFilter: "blur(8px)" }}>
+                  <span className="w-2 h-2 rounded-full bg-green-400" style={{ animation: "pulse 2s infinite" }} />
+                  <span className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>Australia&apos;s AI-powered exam prep platform</span>
                 </div>
                 <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black leading-tight mb-6"
-                  style={{ fontFamily: 'system-ui, -apple-system, sans-serif', color: "#0f172a" }}>
+                  style={{ fontFamily: 'system-ui, -apple-system, sans-serif', color: "#ffffff" }}>
                   Give your child the edge in every major{" "}
-                  <span style={{ color: "#0066CB" }}>Australian exam.</span>
+                  <span style={{ color: "#56DBFF" }}>Australian exam.</span>
                 </h1>
-                <p className="text-lg sm:text-xl mb-8 leading-relaxed" style={{ color: "#475569" }}>
+                <p className="text-lg sm:text-xl mb-8 leading-relaxed" style={{ color: "rgba(255,255,255,0.72)" }}>
                   AI-powered tutoring across AMC, ICAS, NAPLAN, ATAR, Maths Olympiad, and more — personalised for your child&apos;s year level, at a fraction of the cost of a tutor.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3 mb-8">
                   <button onClick={() => setSplashDone(true)}
-                    className="px-8 py-4 rounded-xl font-bold text-base transition-all hover:opacity-90 hover:scale-[1.02] active:scale-[0.98] shadow-lg"
-                    style={{ background: "#000936", color: "#FDC800" }}>
+                    className="px-8 py-4 rounded-xl font-bold text-base transition-all hover:scale-[1.03] active:scale-[0.98] shadow-xl"
+                    style={{ background: "#FDC800", color: "#000936" }}>
                     Start your 7-day free trial →
                   </button>
                   <button onClick={() => setShowChildLogin(true)}
-                    className="px-8 py-4 rounded-xl font-semibold text-base transition-all hover:bg-slate-50"
-                    style={{ border: "2px solid #CBD5E1", color: "#475569" }}>
+                    className="px-8 py-4 rounded-xl font-semibold text-base transition-all"
+                    style={{ border: "2px solid rgba(255,255,255,0.28)", color: "rgba(255,255,255,0.85)", background: "rgba(255,255,255,0.06)" }}>
                     I&apos;m a student →
                   </button>
                 </div>
-                <div className="flex flex-wrap gap-5 text-sm" style={{ color: "#64748b" }}>
+                <div className="flex flex-wrap gap-5 text-sm" style={{ color: "rgba(255,255,255,0.52)" }}>
                   {["7 days free, then $9.99/month AUD", "Cancel any time before day 7", "Built by an Australian parent"].map(t => (
                     <span key={t} className="flex items-center gap-1.5">
-                      <span style={{ color: "#059669" }}>✓</span> {t}
+                      <span style={{ color: "#4ade80" }}>✓</span> {t}
                     </span>
                   ))}
                 </div>
               </div>
 
-              {/* Right: visual exam badge grid */}
+              {/* Right: frosted glass exam badge grid */}
               <div className="hidden lg:block">
-                <div className="rounded-2xl border border-slate-200 bg-white/80 backdrop-blur-sm shadow-sm p-6">
-                  <p className="text-xs font-bold tracking-widest uppercase mb-4" style={{ color: "#64748b" }}>Supports preparation for</p>
+                <div className="rounded-2xl p-6" style={{
+                  background: "rgba(255,255,255,0.07)",
+                  backdropFilter: "blur(20px)",
+                  WebkitBackdropFilter: "blur(20px)",
+                  border: "1px solid rgba(255,255,255,0.13)",
+                  boxShadow: "0 8px 48px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.08)",
+                }}>
+                  <p className="text-xs font-bold tracking-widest uppercase mb-4" style={{ color: "rgba(255,255,255,0.4)" }}>Supports preparation for</p>
                   <div className="grid grid-cols-4 gap-3">
                     {[
-                      { abbr: "AMC",    icon: "🔢", label: "Maths Competition", years: "Yr 3–12",  color: "#0066CB", bg: "#EFF6FF" },
-                      { abbr: "OLY",    icon: "🏆", label: "Maths Olympiad",    years: "Yr 4–10",  color: "#7C3AED", bg: "#F5F3FF" },
-                      { abbr: "ACER",   icon: "📐", label: "Selective Entry",   years: "Yr 3–9",   color: "#DB2777", bg: "#FDF2F8" },
-                      { abbr: "ICAS",   icon: "🌟", label: "Intl Assessments",  years: "Yr 2–12",  color: "#059669", bg: "#ECFDF5" },
-                      { abbr: "ATAR",   icon: "🎓", label: "Tertiary Rank",     years: "Yr 11–12", color: "#D97706", bg: "#FFFBEB" },
-                      { abbr: "NAP",    icon: "📚", label: "NAPLAN",            years: "Yr 3–9",   color: "#E34C00", bg: "#FFF7ED" },
-                      { abbr: "BEB",    icon: "💻", label: "Bebras Computing",  years: "Yr 3–12",  color: "#0891B2", bg: "#F0F9FF" },
-                      { abbr: "KSF",    icon: "🦘", label: "Kangourou",         years: "Yr 3–12",  color: "#9333EA", bg: "#FAF5FF" },
-                    ].map(({ abbr, icon, label, years, color, bg }) => (
+                      { abbr: "AMC",  icon: "🔢", label: "Maths Competition", years: "Yr 3–12",  color: "#56DBFF" },
+                      { abbr: "OLY",  icon: "🏆", label: "Maths Olympiad",    years: "Yr 4–10",  color: "#a78bfa" },
+                      { abbr: "ACER", icon: "📐", label: "Selective Entry",   years: "Yr 3–9",   color: "#f472b6" },
+                      { abbr: "ICAS", icon: "🌟", label: "Intl Assessments",  years: "Yr 2–12",  color: "#4ade80" },
+                      { abbr: "ATAR", icon: "🎓", label: "Tertiary Rank",     years: "Yr 11–12", color: "#FDC800" },
+                      { abbr: "NAP",  icon: "📚", label: "NAPLAN",            years: "Yr 3–9",   color: "#fb923c" },
+                      { abbr: "BEB",  icon: "💻", label: "Bebras Computing",  years: "Yr 3–12",  color: "#38bdf8" },
+                      { abbr: "KSF",  icon: "🦘", label: "Kangourou",         years: "Yr 3–12",  color: "#c084fc" },
+                    ].map(({ abbr, icon, label, years, color }) => (
                       <div key={abbr} className="flex flex-col items-center gap-1.5 rounded-xl p-2.5 text-center transition-transform hover:scale-105"
-                        style={{ background: bg, border: `1.5px solid ${color}25` }}>
-                        <div className="w-11 h-11 rounded-full flex flex-col items-center justify-center shadow-sm text-white font-black"
-                          style={{ background: `linear-gradient(135deg, ${color}, ${color}cc)` }}>
-                          <span style={{ fontSize: 11, letterSpacing: "-0.5px", lineHeight: 1.1 }}>{abbr}</span>
+                        style={{ background: "rgba(255,255,255,0.05)", border: `1.5px solid ${color}30` }}>
+                        <div className="w-11 h-11 rounded-full flex flex-col items-center justify-center font-black"
+                          style={{ background: `linear-gradient(135deg, ${color}bb, ${color}77)`, boxShadow: `0 2px 12px ${color}44` }}>
+                          <span style={{ fontSize: 11, letterSpacing: "-0.5px", lineHeight: 1.1, color: color === "#FDC800" ? "#000936" : "#fff" }}>{abbr}</span>
                         </div>
                         <span className="text-lg leading-none">{icon}</span>
-                        <p className="font-semibold leading-snug" style={{ fontSize: 9, color: "#334155" }}>{label}</p>
-                        <span className="font-bold rounded-full px-1.5 py-0.5" style={{ fontSize: 8, background: `${color}18`, color }}>
+                        <p className="font-semibold leading-snug" style={{ fontSize: 9, color: "rgba(255,255,255,0.6)" }}>{label}</p>
+                        <span className="font-bold rounded-full px-1.5 py-0.5" style={{ fontSize: 8, background: `${color}1a`, color }}>
                           {years}
                         </span>
                       </div>
                     ))}
                   </div>
-                  <p className="text-xs mt-4 leading-relaxed" style={{ color: "#94a3b8" }}>
+                  <p className="text-xs mt-4 leading-relaxed" style={{ color: "rgba(255,255,255,0.28)" }}>
                     SelectEd is an independent preparation platform. It is not affiliated with, endorsed by, or connected to the organisations that administer these assessments.
                   </p>
                 </div>
