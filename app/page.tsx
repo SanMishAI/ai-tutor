@@ -377,6 +377,7 @@ function Logo({ size = 56, style: extraStyle }: { size?: number; style?: React.C
 }
 
 export default function Home() {
+  const [mounted, setMounted] = useState(false)
   const [splashDone, setSplashDone] = useState(false)
   const [introSeen, setIntroSeen] = useState(false)
   const [showBackToTop, setShowBackToTop] = useState(false)
@@ -435,12 +436,14 @@ export default function Home() {
     if (s) setChildSession(s)
   }, [])
 
-  // Skip landing page for returning users
+  // Skip landing page for returning users — must set mounted AFTER state so render is synchronous
   useEffect(() => {
-    if (localStorage.getItem("selected_intro_seen") === "1") {
+    const seen = localStorage.getItem("selected_intro_seen") === "1"
+    if (seen) {
       setSplashDone(true)
       setIntroSeen(true)
     }
+    setMounted(true)
   }, [])
 
   // Load today's guest question count from localStorage
@@ -811,6 +814,7 @@ export default function Home() {
   }
 
   if (!splashDone) {
+    if (!mounted) return <div className="min-h-screen" style={{ background: "#000936" }} />
     return (
       <div className="min-h-screen overflow-y-auto" style={{ backgroundColor: "#ffffff", color: "#0f172a" }}>
         <style>{`
