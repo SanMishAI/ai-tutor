@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { useClerk } from "@clerk/nextjs"
+import { useRouter } from "next/navigation"
 
 type Props = {
   children: React.ReactNode
@@ -10,7 +10,7 @@ type Props = {
 }
 
 export default function CaptchaSignUpGate({ children, className, style }: Props) {
-  const { openSignUp } = useClerk()
+  const router = useRouter()
   const [open, setOpen] = useState(false)
   const [captchaQ, setCaptchaQ] = useState<[number, number]>([4, 7])
   const [captchaA, setCaptchaA] = useState("")
@@ -30,13 +30,13 @@ export default function CaptchaSignUpGate({ children, className, style }: Props)
   function handleVerify() {
     if (parseInt(captchaA) !== captchaQ[0] + captchaQ[1]) {
       setError("Incorrect — try again")
-      const next = Math.ceil(Math.random() * 9)
-      const next2 = Math.ceil(Math.random() * 9)
-      setCaptchaQ([next, next2]); setCaptchaA("")
+      const a = Math.ceil(Math.random() * 9)
+      const b = Math.ceil(Math.random() * 9)
+      setCaptchaQ([a, b]); setCaptchaA("")
       return
     }
     setOpen(false)
-    openSignUp()
+    router.push("/sign-up")
   }
 
   return (
