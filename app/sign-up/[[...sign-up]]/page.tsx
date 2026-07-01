@@ -7,24 +7,37 @@ import { useRouter } from "next/navigation"
 type CE = { message: string; longMessage?: string }
 function msg(e: CE) { return e.longMessage ?? e.message }
 
+const CURRENT_YEAR = new Date().getFullYear()
+const MAX_BIRTH_YEAR = CURRENT_YEAR - 18           // must be at least 18
+const BIRTH_YEARS = Array.from(
+  { length: MAX_BIRTH_YEAR - 1939 },
+  (_, i) => MAX_BIRTH_YEAR - i                     // newest first
+)
+
 export default function SignUpPage() {
   const { signUp, fetchStatus } = useSignUp()
   const router = useRouter()
 
   const [step, setStep] = useState<"form" | "verify">("form")
   const [form, setForm] = useState({ firstName: "", lastName: "", email: "", password: "" })
+  const [birthYear, setBirthYear] = useState("")
+  const [ageConfirmed, setAgeConfirmed] = useState(false)
   const [code, setCode] = useState("")
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
 
   const loading = busy || fetchStatus === "fetching"
+  const ageGateOk = ageConfirmed && birthYear !== ""
 
   function field(key: keyof typeof form, val: string) {
     setForm(f => ({ ...f, [key]: val })); setError("")
   }
 
   async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault(); setBusy(true); setError("")
+    e.preventDefault()
+    if (!birthYear) { setError("Please select your year of birth."); return }
+    if (!ageConfirmed) { setError("Please confirm you are 18 years of age or older."); return }
+    setBusy(true); setError("")
     try {
       const { error: e1 } = await signUp.password({
         emailAddress: form.email,
@@ -61,6 +74,8 @@ export default function SignUpPage() {
   }
 
   async function handleGoogle() {
+    if (!birthYear) { setError("Please select your year of birth before continuing."); return }
+    if (!ageConfirmed) { setError("Please confirm you are 18 years of age or older."); return }
     setError("")
     const { error: e } = await signUp.sso({
       strategy: "oauth_google",
@@ -136,9 +151,52 @@ export default function SignUpPage() {
         <p className="text-sm" style={{ color: "#64748b" }}>7-day free trial · No charge until day 8</p>
       </div>
 
+      {error && (
+        <p className="text-sm text-center font-medium rounded-lg px-3 py-2 bg-red-50 border border-red-100" style={{ color: "#dc2626" }}>
+          {error}
+        </p>
+      )}
+
+      {/* Age verification — required before any sign-up path */}
+      <div className="space-y-3 pb-1 border-b border-slate-100">
+        <div>
+          <label className="block text-xs font-semibold mb-1" style={{ color: "#475569" }}>
+            Year of birth <span style={{ color: "#dc2626" }}>*</span>
+          </label>
+          <select
+            value={birthYear}
+            onChange={e => { setBirthYear(e.target.value); setError("") }}
+            className="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-400"
+            style={{ color: birthYear ? "#0f172a" : "#94a3b8" }}
+          >
+            <option value="">Select year of birth</option>
+            {BIRTH_YEARS.map(y => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+          <p className="text-xs mt-1" style={{ color: "#94a3b8" }}>
+            Must be 18 or older. Parents create accounts on behalf of their children.
+          </p>
+        </div>
+
+        <label className="flex items-start gap-3 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={ageConfirmed}
+            onChange={e => { setAgeConfirmed(e.target.checked); setError("") }}
+            className="mt-0.5 h-4 w-4 rounded border-slate-300 shrink-0"
+            style={{ accentColor: "#000936" }}
+          />
+          <span className="text-xs leading-relaxed" style={{ color: "#475569" }}>
+            I confirm I am <strong>18 years of age or older</strong>, or I am a parent / guardian
+            setting up this account on behalf of a child.
+          </span>
+        </label>
+      </div>
+
       <button
-        onClick={handleGoogle} disabled={loading}
-        className="w-full flex items-center justify-center gap-3 py-3 rounded-xl border-2 font-semibold text-sm transition-all hover:bg-slate-50 disabled:opacity-50"
+        onClick={handleGoogle} disabled={loading || !ageGateOk}
+        className="w-full flex items-center justify-center gap-3 py-3 rounded-xl border-2 font-semibold text-sm transition-all hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed"
         style={{ borderColor: "#e2e8f0", color: "#0f172a" }}
       >
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
@@ -155,12 +213,6 @@ export default function SignUpPage() {
         <span className="text-xs" style={{ color: "#94a3b8" }}>or sign up with email</span>
         <div className="h-px flex-1 bg-slate-200" />
       </div>
-
-      {error && (
-        <p className="text-sm text-center font-medium rounded-lg px-3 py-2 bg-red-50 border border-red-100" style={{ color: "#dc2626" }}>
-          {error}
-        </p>
-      )}
 
       <form onSubmit={handleSubmit} className="space-y-3">
         <div className="flex gap-2">
@@ -196,8 +248,8 @@ export default function SignUpPage() {
         {/* Clerk mounts its Turnstile bot-protection widget here */}
         <div id="clerk-captcha" />
         <button
-          type="submit" disabled={loading}
-          className="w-full py-3.5 rounded-xl font-bold text-sm transition-all hover:opacity-90 disabled:opacity-50 shadow-sm"
+          type="submit" disabled={loading || !ageGateOk}
+          className="w-full py-3.5 rounded-xl font-bold text-sm transition-all hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
           style={{ background: "#000936", color: "#FDC800" }}
         >
           {loading ? "Creating account…" : "Create account →"}

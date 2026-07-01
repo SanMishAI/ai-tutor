@@ -248,7 +248,7 @@ function ParentDashboard() {
                 + Add child
               </button>
             )}
-            {!canAddMore && !sub.isPremium && (
+            {!canAddMore && !sub.isPremium && !sub.isFounder && (
               <button onClick={handleCheckout}
                 className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-amber-300 hover:bg-amber-50 transition-colors"
                 style={{ color: "#b45309", background: "#fef3c7" }}>
@@ -295,10 +295,10 @@ function ParentDashboard() {
 
               <div>
                 <label className="block text-xs font-semibold mb-1" style={{ color: "#64748b" }}>
-                  Daily question limit <span style={{ color: "#94a3b8" }}>(leave blank = use plan default{sub.isPremium ? " — unlimited" : " — 20"})</span>
+                  Daily question limit <span style={{ color: "#94a3b8" }}>(leave blank = use plan default{(sub.isPremium || sub.isFounder) ? " — unlimited" : " — 20"})</span>
                 </label>
                 <input value={form.dailyLimit} onChange={e => setForm(f => ({ ...f, dailyLimit: e.target.value.replace(/\D/g, "") }))}
-                  type="text" inputMode="numeric" placeholder={sub.isPremium ? "Unlimited" : "20"}
+                  type="text" inputMode="numeric" placeholder={(sub.isPremium || sub.isFounder) ? "Unlimited" : "20"}
                   className="w-32 px-3 py-2.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-900"
                   style={{ border: "1px solid #e2e8f0", background: "white", color: "#334155" }} />
               </div>
@@ -345,7 +345,7 @@ function ParentDashboard() {
                           type="text" inputMode="numeric"
                           value={editLimit}
                           onChange={e => setEditLimit(e.target.value.replace(/\D/g, ""))}
-                          placeholder={sub.isPremium ? "blank = unlimited" : "blank = 20"}
+                          placeholder={(sub.isPremium || sub.isFounder) ? "blank = unlimited" : "blank = 20"}
                           className="w-28 px-2 py-1 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-slate-900"
                           style={{ border: "1px solid #e2e8f0", background: "white", color: "#334155" }}
                         />
@@ -363,7 +363,7 @@ function ParentDashboard() {
                       <p className="text-xs mt-0.5" style={{ color: "#94a3b8" }}>
                         {c.dailyLimit !== null
                           ? `${c.dailyLimit} questions/day`
-                          : sub.isPremium ? "Unlimited questions/day" : "10 questions/day (free plan)"}
+                          : (sub.isPremium || sub.isFounder) ? "Unlimited questions/day" : "10 questions/day (free plan)"}
                         {" · "}
                         <button onClick={() => { setEditId(c.id); setEditLimit(c.dailyLimit?.toString() ?? "") }}
                           className="underline hover:text-slate-700 transition-colors">
