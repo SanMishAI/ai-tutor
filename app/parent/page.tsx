@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react"
 import { useUser, UserButton } from "@clerk/nextjs"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
+import AnalyticsPanel from "@/app/components/parent/AnalyticsPanel"
 
 type Child = { id: string; name: string; avatarEmoji: string; dailyLimit: number | null; createdAt: string }
 type Sub = {
@@ -44,6 +45,7 @@ function ParentDashboard() {
   const [editLimit, setEditLimit] = useState<string>("")
   const [portalLoading, setPortalLoading] = useState(false)
   const [checkoutLoading, setCheckoutLoading] = useState(false)
+  const [analyticsChildId, setAnalyticsChildId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!isLoaded) return
@@ -335,7 +337,8 @@ function ParentDashboard() {
           ) : (
             <div className="space-y-3">
               {children.map(c => (
-                <div key={c.id} className="rounded-2xl border border-slate-200 bg-white px-5 py-4 flex items-center gap-4 shadow-sm">
+                <div key={c.id} className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                <div className="px-5 py-4 flex items-center gap-4">
                   <span className="text-3xl shrink-0">{c.avatarEmoji}</span>
                   <div className="flex-1 min-w-0">
                     <p className="font-bold" style={{ color: "#0f172a" }}>{c.name}</p>
@@ -372,11 +375,32 @@ function ParentDashboard() {
                       </p>
                     )}
                   </div>
-                  <button onClick={() => { if (confirm(`Remove ${c.name}? This deletes all their usage history.`)) deleteChild(c.id) }}
-                    className="text-xs px-2.5 py-1 rounded-lg border border-slate-200 transition-colors hover:border-red-200 hover:text-red-500"
-                    style={{ color: "#94a3b8" }}>
-                    Remove
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setAnalyticsChildId(analyticsChildId === c.id ? null : c.id)}
+                      className="text-xs font-semibold px-2.5 py-1 rounded-lg border transition-all hover:bg-slate-50"
+                      style={{
+                        borderColor: analyticsChildId === c.id ? "#000936" : "#e2e8f0",
+                        color: analyticsChildId === c.id ? "#000936" : "#64748b",
+                        background: analyticsChildId === c.id ? "#f1f5f9" : "white",
+                      }}
+                    >
+                      📊 Analytics
+                    </button>
+                    <button onClick={() => { if (confirm(`Remove ${c.name}? This deletes all their usage history.`)) deleteChild(c.id) }}
+                      className="text-xs px-2.5 py-1 rounded-lg border border-slate-200 transition-colors hover:border-red-200 hover:text-red-500"
+                      style={{ color: "#94a3b8" }}>
+                      Remove
+                    </button>
+                  </div>
+                </div>
+
+                {/* Analytics panel — inline, per child */}
+                {analyticsChildId === c.id && (
+                  <div className="px-5 pb-5 pt-1 border-t border-slate-100">
+                    <AnalyticsPanel childId={c.id} childName={`${c.avatarEmoji} ${c.name}`} />
+                  </div>
+                )}
                 </div>
               ))}
             </div>

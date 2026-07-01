@@ -24,6 +24,7 @@ model Conversation {
 model ExamResult {
   id           String   @id @default(cuid())
   userId       String
+  childId      String?
   subject      String
   yearLevel    String
   score        Int
@@ -33,11 +34,13 @@ model ExamResult {
   createdAt    DateTime @default(now())
 
   @@index([userId])
+  @@index([childId])
 }
 
 model PracticeResult {
   id        String   @id @default(cuid())
   userId    String
+  childId   String?
   subject   String
   yearLevel String
   question  String
@@ -45,6 +48,7 @@ model PracticeResult {
   createdAt DateTime @default(now())
 
   @@index([userId])
+  @@index([childId])
 }
 
 model Feedback {
@@ -119,6 +123,23 @@ model Subscription {
   currentPeriodEnd DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+}
+
+model ChapterProgress {
+  id        String   @id @default(cuid())
+  userId    String
+  childId   String?
+  exam      String
+  chapter   String
+  phase     Int      @default(1)
+  completed Boolean  @default(false)
+  testScore Int?
+  testTotal Int?
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, exam, chapter])
+  @@index([userId, exam])
+  @@index([childId, exam])
 }
 
 model Testimonial {

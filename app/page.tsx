@@ -14,6 +14,7 @@ import FeedbackForm from "./components/FeedbackForm"
 import WelcomeScreen from "./components/WelcomeScreen"
 import StreakBadge from "./components/StreakBadge"
 import ArcadeMode from "./components/arcade/ArcadeMode"
+import StudyMode from "./components/study/StudyMode"
 import ChildLoginScreen from "./components/ChildLoginScreen"
 import UpgradeModal from "./components/UpgradeModal"
 import GuestLimitModal from "./components/GuestLimitModal"
@@ -384,7 +385,7 @@ export default function Home() {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
-  const [mode, setMode] = useState<"chat" | "practice" | "exam" | "adventure">("chat")
+  const [mode, setMode] = useState<"chat" | "practice" | "exam" | "adventure" | "study">("chat")
   const [subject, setSubject] = useState(SUBJECTS[0])
   const [yearLevel, setYearLevel] = useState(YEAR_LEVELS[SUBJECTS[0]][0])
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -673,7 +674,7 @@ export default function Home() {
           subject,
           yearLevel,
           messages: msgs,
-          mode: (mode === "exam" || mode === "adventure") ? "chat" : mode,
+          mode: (mode === "exam" || mode === "adventure" || mode === "study") ? "chat" : mode,
           createdAt: new Date().toISOString(),
         }
         updated = [...prev, newConv]
@@ -763,8 +764,8 @@ export default function Home() {
     setLoading(false)
   }
 
-  function handleModeChange(newMode: "chat" | "practice" | "exam" | "adventure") {
-    if ((newMode === "exam" || newMode === "adventure") && !checkPremiumFeature(newMode === "exam" ? "Exam Mode" : "Adventure Mode")) return
+  function handleModeChange(newMode: "chat" | "practice" | "exam" | "adventure" | "study") {
+    if ((newMode === "exam" || newMode === "adventure" || newMode === "study") && !checkPremiumFeature(newMode === "exam" ? "Exam Mode" : newMode === "adventure" ? "Adventure Mode" : "Study Mode")) return
     setMode(newMode)
     setAttemptCount(0)
     setPracticeActive(false)
@@ -1916,22 +1917,21 @@ export default function Home() {
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-400 mb-1">Mode</label>
-              <div className="flex rounded-xl overflow-hidden border border-slate-200 shadow-sm">
-                {(["chat", "practice", "exam", "adventure"] as const).map((m) => (
+              <div className="flex flex-wrap gap-1 rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                {(["chat", "practice", "exam", "adventure", "study"] as const).map((m) => (
                   <button
                     key={m}
                     onClick={() => handleModeChange(m)}
-                    className="px-3 py-2 text-sm font-semibold transition-all"
+                    className="flex-1 px-2 py-2 text-xs font-semibold transition-all whitespace-nowrap"
                     style={mode === m ? {
-                      background: m === "adventure" ? "#14532d" : "#000936",
-                      color: m === "adventure" ? "#86efac" : "#FDC800",
+                      background: m === "adventure" ? "#14532d" : m === "study" ? "#1e40af" : "#000936",
+                      color: m === "adventure" ? "#86efac" : m === "study" ? "#bfdbfe" : "#FDC800",
                     } : {
                       background: "white",
                       color: "#64748b",
                     }}
-                    title={m === "adventure" ? "Adventure Mode — mine through chapters!" : undefined}
                   >
-                    {m === "chat" ? "💬 Chat" : m === "practice" ? "📝 Practice" : m === "exam" ? "⏱️ Exam" : "⛏️ Adventure"}
+                    {m === "chat" ? "💬 Chat" : m === "practice" ? "📝 Practice" : m === "exam" ? "⏱️ Exam" : m === "adventure" ? "⛏️ Adventure" : "📖 Study"}
                   </button>
                 ))}
               </div>
@@ -1946,6 +1946,16 @@ export default function Home() {
               onSwitchToPractice={(ex, yr) => { setSubject(ex); setYearLevel(yr); handleModeChange("practice") }}
               onSwitchToExam={(ex, yr) => { setSubject(ex); setYearLevel(yr); handleModeChange("exam") }}
               onExit={() => handleModeChange("chat")}
+            />
+          )}
+
+          {/* Study mode */}
+          {mode === "study" && (
+            <StudyMode
+              exam={subject}
+              yearLevel={yearLevel}
+              onExit={() => handleModeChange("chat")}
+              childToken={childSession?.token ?? null}
             />
           )}
 

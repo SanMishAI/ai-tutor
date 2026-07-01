@@ -63,7 +63,7 @@ export default function SignUpPage() {
       if (signUp.status === "complete") {
         const { error: e2 } = await signUp.finalize()
         if (e2) { setError(msg(e2)); return }
-        router.push("/")
+        router.push("/parent")
       }
     } finally { setBusy(false) }
   }
