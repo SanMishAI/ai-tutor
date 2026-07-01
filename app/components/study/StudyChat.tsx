@@ -81,17 +81,21 @@ function stripForSpeech(text: string): string {
     .trim()
 }
 
-// Find the last natural speech boundary (sentence end or paragraph) in text
-function findSpeakBoundary(text: string): number {
-  if (text.length < 40) return -1
-  let last = -1
-  for (let i = 20; i < text.length - 1; i++) {
-    const c = text[i]
-    const n = text[i + 1]
-    if ((c === "." || c === "!" || c === "?") && (n === " " || n === "\n")) last = i + 1
-    else if (c === "\n" && n === "\n") last = i + 2
+// Extract all complete sentences from text, returning the chunks to speak and remainder
+function extractSpeakable(text: string): { chunks: string[]; remainder: string } {
+  const chunks: string[] = []
+  let start = 0
+  for (let i = 0; i < text.length - 1; i++) {
+    const c = text[i], n = text[i + 1]
+    const isSentenceEnd = (c === "." || c === "!" || c === "?") && (n === " " || n === "\n")
+    const isParaBreak = c === "\n" && n === "\n"
+    if ((isSentenceEnd || isParaBreak) && i - start >= 15) {
+      chunks.push(text.slice(start, i + 1))
+      start = i + (isParaBreak ? 2 : 2)  // skip trailing space/newlines
+      i = start - 1
+    }
   }
-  return last
+  return { chunks, remainder: text.slice(start) }
 }
 
 function MD({ children }: { children: string }) {
@@ -181,7 +185,7 @@ export default function StudyChat({
     const clean = stripForSpeech(text).trim()
     if (!clean) return
     const utter = new SpeechSynthesisUtterance(clean)
-    utter.rate = 1.02   // very slightly faster than default — sounds more natural
+    utter.rate = 0.87   // slightly slower than default — more comfortable for learning
     utter.pitch = 1
     utter.volume = 1
     if (voiceObjRef.current) utter.voice = voiceObjRef.current
@@ -211,6 +215,15 @@ export default function StudyChat({
       return
     }
 
+    // Check if microphone was previously blocked (gives a clearer message upfront)
+    try {
+      const perm = await navigator.permissions.query({ name: "microphone" as PermissionName })
+      if (perm.state === "denied") {
+        setMicError("Microphone is blocked for this site. To fix in Chrome: click the icon at the very left of the address bar (it looks like a lock 🔒 or an info circle), then choose 'Site settings', find 'Microphone' and switch it to 'Allow'. Then reload the page.")
+        return
+      }
+    } catch { /* permissions API not supported — continue anyway */ }
+
     // getUserMedia triggers the browser's native permission dialog on first use
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
@@ -218,7 +231,7 @@ export default function StudyChat({
     } catch (err: unknown) {
       const name = (err as { name?: string })?.name ?? ""
       if (name === "NotAllowedError" || name === "PermissionDeniedError") {
-        setMicError("Microphone access was denied. Click the 🔒 icon in your address bar, set Microphone to Allow, then try again.")
+        setMicError("Microphone blocked. In Chrome, click the icon at the far left of the address bar → 'Site settings' → set Microphone to 'Allow', then reload.")
       } else if (name === "NotFoundError") {
         setMicError("No microphone found. Please connect one and try again.")
       } else {
@@ -283,29 +296,27 @@ export default function StudyChat({
       const reader = res.body?.getReader()
       const decoder = new TextDecoder()
       let full = ""
-      let spokenIdx = 0  // how many chars we've already dispatched to the TTS queue
+      let spokenIdx = 0  // chars already dispatched to TTS queue
 
       if (reader) {
         while (true) {
           const { done, value } = await reader.read()
           if (done) {
-            // Speak any remaining text when stream finishes
+            // Speak any remaining text when stream ends
             if (voiceRef.current && spokenIdx < full.length) {
               speakChunk(full.slice(spokenIdx))
             }
             break
           }
           full += decoder.decode(value, { stream: true })
-          const snap = full
-          setMessages(prev => { const u = [...prev]; u[u.length - 1] = { role: "assistant", content: snap }; return u })
+          setMessages(prev => { const u = [...prev]; u[u.length - 1] = { role: "assistant", content: full }; return u })
 
-          // Streaming TTS: speak completed sentences/paragraphs as they arrive
+          // Queue ALL complete sentences found so far — each as a separate utterance
+          // so TTS starts on the first sentence immediately, not after the full response
           if (voiceRef.current) {
-            const boundary = findSpeakBoundary(full.slice(spokenIdx))
-            if (boundary > 0) {
-              speakChunk(full.slice(spokenIdx, spokenIdx + boundary))
-              spokenIdx += boundary
-            }
+            const { chunks, remainder } = extractSpeakable(full.slice(spokenIdx))
+            for (const chunk of chunks) speakChunk(chunk)
+            spokenIdx = full.length - remainder.length
           }
         }
       }
