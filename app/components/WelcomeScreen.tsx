@@ -32,11 +32,12 @@ const MODES: { id: "chat" | "practice" | "exam"; emoji: string; label: string; d
 
 type Props = {
   onStart: (subject: string, yearLevel: string, mode: "chat" | "practice" | "exam" | "adventure") => void
+  onBack?: () => void
 }
 
 type Step = "pick-exam" | "pick-year"
 
-export default function WelcomeScreen({ onStart }: Props) {
+export default function WelcomeScreen({ onStart, onBack }: Props) {
   const [step, setStep] = useState<Step>("pick-exam")
   const [exam, setExam] = useState<typeof EXAMS[0] | null>(null)
   const [year, setYear] = useState("")
@@ -54,6 +55,17 @@ export default function WelcomeScreen({ onStart }: Props) {
       {/* ── STEP 1: Pick exam ── */}
       {step === "pick-exam" && (
         <div className="w-full max-w-2xl flex flex-col items-center gap-8">
+          {onBack && (
+            <div className="self-start">
+              <button
+                onClick={onBack}
+                className="flex items-center gap-1.5 text-sm font-semibold transition-colors hover:text-slate-900"
+                style={{ color: "#64748b" }}
+              >
+                ← Back to home
+              </button>
+            </div>
+          )}
           <div className="flex flex-col items-center gap-2 text-center">
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-1 shadow-sm"
               style={{ background: "#000936" }}>
@@ -81,7 +93,7 @@ export default function WelcomeScreen({ onStart }: Props) {
             ))}
           </div>
 
-          <p className="text-xs" style={{ color: "#cbd5e1" }}>You can always change this inside the app</p>
+          <p className="text-xs font-medium" style={{ color: "#64748b" }}>You can always change this inside the app</p>
         </div>
       )}
 

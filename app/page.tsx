@@ -793,6 +793,7 @@ export default function Home() {
           setMode(m as "chat" | "practice" | "exam" | "adventure")
           setIntroSeen(true)
         }}
+        onBack={() => setSplashDone(false)}
       />
     )
   }
