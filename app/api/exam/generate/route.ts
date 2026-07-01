@@ -75,27 +75,40 @@ export async function POST(request: Request) {
   try { body = await request.json() } catch {
     return Response.json({ error: "Invalid JSON" }, { status: 400 })
   }
-  const { subject, yearLevel } = body as Record<string, unknown>
+  const { subject, yearLevel, questionCount: rawCount, difficulty: rawDifficulty } = body as Record<string, unknown>
 
   if (typeof subject !== "string" || !subject.trim()) {
     return Response.json({ error: "subject is required" }, { status: 400 })
   }
   const safeSubject   = subject.slice(0, 200)
   const safeYearLevel = typeof yearLevel === "string" ? yearLevel.slice(0, 50) : undefined
+  const questionCount = typeof rawCount === "number" && rawCount > 0 ? Math.min(rawCount, 30) : 10
+  const difficulty    = typeof rawDifficulty === "string" ? rawDifficulty : "real"
+
+  const difficultyNote =
+    difficulty === "warmup"
+      ? "Make questions accessible and confidence-building — slightly below the typical exam difficulty. Avoid trick questions. Prefer straightforward applications of core concepts."
+      : difficulty === "challenge"
+      ? "Make questions genuinely hard — above typical exam difficulty. Include tricky edge cases, multi-step reasoning, and non-obvious approaches."
+      : "Match the difficulty and style of an actual official exam paper exactly. Vary difficulty across questions (easier early, harder later)."
 
   try {
-    const format = EXAM_FORMATS[safeSubject] ?? "10 open-ended questions appropriate for Australian high school level."
+    const baseFormat = EXAM_FORMATS[safeSubject] ?? `${questionCount} open-ended questions appropriate for Australian high school level.`
+    // Scale the format description to the requested question count
+    const format = `${baseFormat} Scale the question count to exactly ${questionCount} questions total, maintaining the same ratio of question types as described.`
 
     const response = await client.messages.create({
       model: 'claude-sonnet-4-6',
-      max_tokens: 8000,
+      max_tokens: 10000,
       messages: [{
         role: "user",
-        content: `Generate exactly 10 exam questions for: ${safeSubject}${safeYearLevel ? ` (${safeYearLevel})` : ""}
+        content: `Generate exactly ${questionCount} exam questions for: ${safeSubject}${safeYearLevel ? ` (${safeYearLevel})` : ""}
 
 Format requirements: ${format}
 
-Difficulty and content must be appropriate for ${safeYearLevel ?? "the exam level"}.
+Difficulty: ${difficultyNote}
+
+Content must be appropriate for ${safeYearLevel ?? "the exam level"}.
 
 ${RICH_CONTENT_RULES}
 

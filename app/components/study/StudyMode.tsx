@@ -82,7 +82,10 @@ export default function StudyMode({
   function finishTest(result: TestResult) {
     setTestResult(result)
     setPhase("results")
-    if (chapter) saveProgress(chapter, 4, true, result.score, result.total)
+    const pct = result.total > 0 ? Math.round((result.score / result.total) * 100) : 0
+    const passed = pct >= 80
+    // Only mark completed if ≥80%; otherwise save progress but not completed
+    if (chapter) saveProgress(chapter, 4, passed, result.score, result.total)
   }
 
   function restart() {
@@ -178,6 +181,7 @@ export default function StudyMode({
         {phase === "results" && chapter && testResult && (
           <ChapterResults
             chapter={chapter}
+            chapterIndex={chapters.indexOf(chapter)}
             result={testResult}
             onRetry={() => { setPhase("test"); setTestResult(null) }}
             onNextChapter={restart}

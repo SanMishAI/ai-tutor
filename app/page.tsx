@@ -385,7 +385,7 @@ export default function Home() {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
-  const [mode, setMode] = useState<"chat" | "practice" | "exam" | "adventure" | "study">("chat")
+  const [mode, setMode] = useState<"chat" | "practice" | "exam" | "adventure" | "study">("study")
   const [subject, setSubject] = useState(SUBJECTS[0])
   const [yearLevel, setYearLevel] = useState(YEAR_LEVELS[SUBJECTS[0]][0])
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -791,7 +791,7 @@ export default function Home() {
         onStart={(sub, yr, m) => {
           setSubject(sub)
           setYearLevel(yr)
-          setMode(m as "chat" | "practice" | "exam" | "adventure")
+          setMode(m as "chat" | "practice" | "exam" | "adventure" | "study")
           setIntroSeen(true)
         }}
         onBack={() => setSplashDone(false)}

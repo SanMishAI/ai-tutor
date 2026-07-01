@@ -10,9 +10,15 @@ import type { ExamQuestion, GradedResult } from "../types"
 type ExamState = "setup" | "generating" | "in_progress" | "submitting" | "results"
 
 const DURATIONS = [
-  { label: "30 min", value: 30 },
-  { label: "45 min", value: 45 },
-  { label: "60 min", value: 60 },
+  { label: "30 min", value: 30, questions: 10 },
+  { label: "45 min", value: 45, questions: 15 },
+  { label: "60 min", value: 60, questions: 20 },
+]
+
+const DIFFICULTIES = [
+  { id: "warmup",    emoji: "🌱", label: "Warm-Up",    desc: "Confidence-building — great for first attempts" },
+  { id: "real",      emoji: "🎯", label: "Real Exam",   desc: "Matches the actual exam style and difficulty" },
+  { id: "challenge", emoji: "🔥", label: "Challenge",   desc: "Harder than the exam — for peak preparation" },
 ]
 
 function formatTime(seconds: number) {
@@ -51,6 +57,7 @@ export default function ExamView({
 }) {
   const [examState, setExamState] = useState<ExamState>("setup")
   const [duration, setDuration] = useState(30)
+  const [difficulty, setDifficulty] = useState<"warmup" | "real" | "challenge">("real")
   const [questions, setQuestions] = useState<ExamQuestion[]>([])
   const [answers, setAnswers] = useState<Record<number, string>>({})
   const [currentQ, setCurrentQ] = useState(0)
@@ -143,11 +150,12 @@ export default function ExamView({
   async function startExam() {
     setError("")
     setExamState("generating")
+    const questionCount = DURATIONS.find(d => d.value === duration)?.questions ?? 10
     try {
       const res = await fetch("/api/exam/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subject, yearLevel }),
+        body: JSON.stringify({ subject, yearLevel, questionCount, difficulty }),
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
@@ -168,33 +176,63 @@ export default function ExamView({
 
   // ── SETUP ──────────────────────────────────────────────────────
   if (examState === "setup") {
+    const selectedDuration = DURATIONS.find(d => d.value === duration)!
+    const selectedDifficulty = DIFFICULTIES.find(d => d.id === difficulty)!
     return (
-      <div className="flex flex-col items-center justify-center flex-1 gap-6 py-8">
+      <div className="flex flex-col items-center justify-center flex-1 gap-7 py-8 px-4">
         <div className="text-center">
           <span className="text-5xl">⏱️</span>
-          <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mt-3">Mock Exam</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{subject}</p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{yearLevel} · 10 questions · Format matched to exam type</p>
+          <h2 className="text-xl font-bold mt-3" style={{ color: "#000936" }}>Mock Exam</h2>
+          <p className="text-sm mt-1" style={{ color: "#64748b" }}>{subject}</p>
+          <p className="text-xs mt-1" style={{ color: "#94a3b8" }}>
+            {yearLevel} · {selectedDuration.questions} questions · {selectedDuration.label}
+          </p>
         </div>
 
         {error && (
-          <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950 px-4 py-2 rounded-xl">{error}</p>
+          <p className="text-sm px-4 py-2 rounded-xl" style={{ color: "#dc2626", background: "#fef2f2" }}>{error}</p>
         )}
 
-        <div>
-          <p className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-2 text-center">Select duration</p>
+        {/* Difficulty picker */}
+        <div className="w-full max-w-sm">
+          <p className="text-xs font-bold mb-2 text-center uppercase tracking-wide" style={{ color: "#64748b" }}>Difficulty</p>
+          <div className="grid grid-cols-3 gap-2">
+            {DIFFICULTIES.map(d => (
+              <button
+                key={d.id}
+                onClick={() => setDifficulty(d.id as typeof difficulty)}
+                className="flex flex-col items-center gap-1 py-3 px-2 rounded-2xl border-2 transition-all text-center"
+                style={difficulty === d.id ? {
+                  borderColor: "#000936", background: "#000936", color: "white"
+                } : {
+                  borderColor: "#e2e8f0", background: "white", color: "#334155"
+                }}
+              >
+                <span className="text-xl">{d.emoji}</span>
+                <span className="text-xs font-bold leading-tight">{d.label}</span>
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-center mt-2" style={{ color: "#94a3b8" }}>{selectedDifficulty.desc}</p>
+        </div>
+
+        {/* Duration picker */}
+        <div className="w-full max-w-sm">
+          <p className="text-xs font-bold mb-2 text-center uppercase tracking-wide" style={{ color: "#64748b" }}>Duration & Questions</p>
           <div className="flex gap-2">
             {DURATIONS.map(d => (
               <button
                 key={d.value}
                 onClick={() => setDuration(d.value)}
-                className={`px-4 py-2 rounded-xl text-sm font-medium border transition-colors ${
-                  duration === d.value
-                    ? "bg-indigo-600 dark:bg-indigo-500 text-white border-transparent"
-                    : "bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-indigo-300"
-                }`}
+                className="flex-1 py-3 rounded-xl text-sm font-semibold border-2 transition-all text-center"
+                style={duration === d.value ? {
+                  borderColor: "#000936", background: "#000936", color: "#FDC800"
+                } : {
+                  borderColor: "#e2e8f0", background: "white", color: "#334155"
+                }}
               >
-                {d.label}
+                <span className="block font-black">{d.label}</span>
+                <span className="block text-xs mt-0.5 opacity-70">{d.questions} Qs</span>
               </button>
             ))}
           </div>
@@ -202,9 +240,10 @@ export default function ExamView({
 
         <button
           onClick={startExam}
-          className="bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white px-8 py-3 rounded-xl font-semibold shadow-sm transition-colors"
+          className="px-10 py-3 rounded-2xl font-bold text-base shadow-md transition-all hover:opacity-90"
+          style={{ background: "#000936", color: "#FDC800" }}
         >
-          Start Exam
+          Start Exam →
         </button>
       </div>
     )
