@@ -588,28 +588,28 @@ export default function Home() {
   const activeConv = conversations.find(c => c.id === activeId)
   const messages = activeConv?.messages ?? []
 
-  // Load conversations — from cloud if signed in, otherwise localStorage
+  // Auth state → app state sync
   useEffect(() => {
     if (isSignedIn === undefined) return
+
     if (isSignedIn) {
+      // Parent is signed in: enter the app and scrub the localStorage flag NOW,
+      // so that when Clerk redirects on sign-out the flag is already gone on reload.
+      setSplashDone(true)
+      setIntroSeen(true)
+      localStorage.removeItem("selected_intro_seen")
+      // Load conversations from cloud
       fetch("/api/conversations")
         .then(r => r.json())
-        .then((data: Conversation[]) => {
-          if (Array.isArray(data)) setConversations(data)
-        })
+        .then((data: Conversation[]) => { if (Array.isArray(data)) setConversations(data) })
         .catch(() => setConversations(loadConversations()))
     } else {
       setConversations(loadConversations())
-    }
-  }, [isSignedIn])
-
-  // Detect parent sign-out via Clerk and reset to landing page
-  useEffect(() => {
-    if (isSignedIn === undefined) return
-    if (prevSignedInRef.current === true && isSignedIn === false && !childSession) {
-      setSplashDone(false)
-      setIntroSeen(false)
-      localStorage.removeItem("selected_intro_seen")
+      // If a parent was previously signed in (in-place sign-out, no redirect), reset to landing page
+      if (prevSignedInRef.current === true && !childSession) {
+        setSplashDone(false)
+        setIntroSeen(false)
+      }
     }
     prevSignedInRef.current = isSignedIn
   }, [isSignedIn, childSession])
