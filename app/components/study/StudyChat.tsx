@@ -237,21 +237,19 @@ export default function StudyChat({
         const blob = await res.blob()
         if (!voiceRef.current) return
         const url = URL.createObjectURL(blob)
-        await new Promise<void>(resolve => {
+        // played = true means audio actually finished; false means autoplay was blocked
+        const played = await new Promise<boolean>(resolve => {
           const audio = new Audio(url)
           currentAudioRef.current = audio
-          const done = () => {
-            try { URL.revokeObjectURL(url) } catch {}
-            currentAudioRef.current = null
-            resolve()
-          }
-          audio.onended = done
-          audio.onerror = done
-          audio.play().catch(done)
+          audio.onended = () => { try { URL.revokeObjectURL(url) } catch {} ; currentAudioRef.current = null; resolve(true) }
+          audio.onerror = () => { try { URL.revokeObjectURL(url) } catch {} ; currentAudioRef.current = null; resolve(false) }
+          // If browser autoplay policy blocks play(), resolve(false) so Web Speech fallback runs
+          audio.play().catch(() => { try { URL.revokeObjectURL(url) } catch {} ; currentAudioRef.current = null; resolve(false) })
         })
-        return
+        if (played) return
+        // Autoplay was blocked — fall through to Web Speech
       }
-      // API unavailable (503 = no key configured) — fall through to Web Speech
+      // API unavailable (503 = no key) — fall through to Web Speech
     } catch (e: unknown) {
       if ((e as { name?: string })?.name === "AbortError") return
       // Network error — fall through to Web Speech
@@ -280,7 +278,7 @@ export default function StudyChat({
 
   // ── Microphone (STT) ──
 
-  async function toggleListening() {
+  function toggleListening() {
     setMicError(null)
     if (isListening) {
       recognitionRef.current?.stop()
@@ -290,20 +288,6 @@ export default function StudyChat({
     const w = window as any
     if (!w.SpeechRecognition && !w.webkitSpeechRecognition) {
       setMicError("Speech recognition isn't supported here — please use Chrome or Edge.")
-      return
-    }
-
-    // Ask for mic access — triggers the browser's native Allow popup on first use
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      stream.getTracks().forEach(t => t.stop())
-    } catch (err: unknown) {
-      const name = (err as { name?: string })?.name ?? ""
-      if (name === "NotFoundError") {
-        setMicError("No microphone found. Please connect one and try again.")
-      } else {
-        setMicError("Microphone access denied. In Chrome, tap the icon at the left of the address bar → Site settings → Microphone → Allow → reload.")
-      }
       return
     }
 
@@ -325,10 +309,12 @@ export default function StudyChat({
     rec.onerror = (e: any) => {
       setIsListening(false)
       if (e.error === "aborted") return
-      if (e.error === "no-speech") setMicError("No speech detected — tap the mic and speak clearly.")
+      if (e.error === "not-allowed") setMicError("Microphone blocked. Click the lock icon in your address bar → allow Microphone → reload the page.")
+      else if (e.error === "no-speech") setMicError("No speech detected — tap the mic and speak clearly.")
       else if (e.error === "network") setMicError("Network error during speech recognition.")
       else setMicError(`Mic error: ${e.error}. Please try again.`)
     }
+    // rec.start() triggers the browser's native permission prompt automatically on first use
     try { rec.start() } catch { setMicError("Could not start microphone. Please try again.") }
   }
 
