@@ -12,7 +12,8 @@ function practiceComplete(messages: Msg[]): boolean {
   return messages.some(m => m.role === "assistant" && m.content.includes("Start Chapter Test"))
 }
 
-// Convert simple LaTeX expressions to readable English
+// ─── Text cleaning for speech ───────────────────────────────────────────────
+
 function latexToSpeech(expr: string): string {
   const s = expr
     .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, "$1 over $2")
@@ -34,69 +35,60 @@ function latexToSpeech(expr: string): string {
     .replace(/\\alpha\b/g, " alpha ")
     .replace(/\\beta\b/g, " beta ")
     .replace(/\\infty/g, " infinity ")
-    .replace(/\\left[([\[{]/g, "")
-    .replace(/\\right[)\]}\|]/g, "")
+    .replace(/\\left[([{]/g, "")
+    .replace(/\\right[)\]}|]/g, "")
     .replace(/[\\{}]/g, " ")
     .replace(/\s+/g, " ")
     .trim()
-  // If still looks too LaTeX-y after cleanup, skip it
   return /[\\{}]/.test(s) ? "" : s
 }
 
 function stripForSpeech(text: string): string {
   return text
-    // Remove SVG diagrams entirely
     .replace(/<svg[\s\S]*?<\/svg>/gi, "")
-    // Display math — try to say it, otherwise silence
     .replace(/\$\$([\s\S]*?)\$\$/g, (_, expr) => {
-      const spoken = latexToSpeech(expr)
-      return spoken && spoken.length < 80 ? `. ${spoken}.` : ". "
+      const s = latexToSpeech(expr)
+      return s && s.length < 80 ? `. ${s}.` : ". "
     })
-    // Inline math — try to say it, otherwise silence
     .replace(/\$([^$\n]{1,60})\$/g, (_, expr) => {
-      const spoken = latexToSpeech(expr)
-      // If it's just a number or simple expression, say it inline
       if (/^\d+(\.\d+)?$/.test(expr.trim())) return expr.trim()
-      return spoken && spoken.length < 50 ? ` ${spoken} ` : " "
+      const s = latexToSpeech(expr)
+      return s && s.length < 50 ? ` ${s} ` : " "
     })
-    // Remove all remaining $ signs (unclosed/complex math)
     .replace(/\$/g, "")
-    // Remove ALL emojis using Unicode property escape
     .replace(/\p{Extended_Pictographic}/gu, "")
-    // Remove markdown formatting
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .replace(/\*([^*]+)\*/g, "$1")
     .replace(/#{1,6}\s+/g, "")
     .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
     .replace(/`[^`]+`/g, "")
     .replace(/_{1,2}([^_]+)_{1,2}/g, "$1")
-    // Bullets/lists → natural pauses
     .replace(/^\s*[-*•]\s+/gm, ". ")
-    // Paragraph breaks → sentence pause
     .replace(/\n{2,}/g, ". ")
     .replace(/\n/g, ", ")
-    // Collapse whitespace
     .replace(/\s{2,}/g, " ")
     .replace(/[.]{2,}/g, ".")
     .trim()
 }
 
-// Extract all complete sentences from text, returning the chunks to speak and remainder
+// Extract all complete sentences from unspoken text
 function extractSpeakable(text: string): { chunks: string[]; remainder: string } {
   const chunks: string[] = []
   let start = 0
   for (let i = 0; i < text.length - 1; i++) {
     const c = text[i], n = text[i + 1]
-    const isSentenceEnd = (c === "." || c === "!" || c === "?") && (n === " " || n === "\n")
-    const isParaBreak = c === "\n" && n === "\n"
-    if ((isSentenceEnd || isParaBreak) && i - start >= 15) {
+    const sentEnd = (c === "." || c === "!" || c === "?") && (n === " " || n === "\n")
+    const paraBreak = c === "\n" && n === "\n"
+    if ((sentEnd || paraBreak) && i - start >= 15) {
       chunks.push(text.slice(start, i + 1))
-      start = i + (isParaBreak ? 2 : 2)  // skip trailing space/newlines
+      start = i + 2
       i = start - 1
     }
   }
   return { chunks, remainder: text.slice(start) }
 }
+
+// ─── Markdown renderer ───────────────────────────────────────────────────────
 
 function MD({ children }: { children: string }) {
   return (
@@ -108,29 +100,22 @@ function MD({ children }: { children: string }) {
   )
 }
 
+// ─── Component ───────────────────────────────────────────────────────────────
+
 export default function StudyChat({
-  exam,
-  yearLevel,
-  chapter,
-  onStartTest,
+  exam, yearLevel, chapter, onStartTest,
 }: {
-  exam: string
-  yearLevel: string
-  chapter: string
-  onStartTest: () => void
+  exam: string; yearLevel: string; chapter: string; onStartTest: () => void
 }) {
   const [messages, setMessages] = useState<Msg[]>([])
   const messagesRef = useRef<Msg[]>([])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
-
-  // voiceRef mirrors voiceEnabled — lets sendToAI (async) always read the latest value
   const [voiceEnabled, setVoiceEnabled] = useState(true)
   const voiceRef = useRef(true)
 
   const [isListening, setIsListening] = useState(false)
   const [speechSupported, setSpeechSupported] = useState(false)
-  const [ttsSupported, setTtsSupported] = useState(false)
   const [micError, setMicError] = useState<string | null>(null)
 
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -138,8 +123,15 @@ export default function StudyChat({
   const started = useRef(false)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null)
+
+  // ── TTS queue (OpenAI API, falls back to Web Speech) ──
+  const ttsQueueRef = useRef<string[]>([])
+  const ttsRunningRef = useRef(false)
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null)
+  const fetchAbortRef = useRef<AbortController | null>(null)
+  // Web Speech fallback
   const synthRef = useRef<SpeechSynthesis | null>(null)
-  const voiceObjRef = useRef<SpeechSynthesisVoice | null>(null)
+  const wsVoiceRef = useRef<SpeechSynthesisVoice | null>(null)
 
   useEffect(() => { messagesRef.current = messages }, [messages])
 
@@ -149,26 +141,20 @@ export default function StudyChat({
     setSpeechSupported(!!(w.SpeechRecognition || w.webkitSpeechRecognition))
 
     if (window.speechSynthesis) {
-      setTtsSupported(true)
       synthRef.current = window.speechSynthesis
-
-      function pickVoice() {
+      const pickVoice = () => {
         const voices = window.speechSynthesis.getVoices()
-        // Prefer Google voices (Chrome, best quality), then Neural/Natural, then any English
-        voiceObjRef.current =
+        wsVoiceRef.current =
           voices.find(v => v.name.toLowerCase().includes("google") && v.lang.startsWith("en")) ??
           voices.find(v => (v.name.includes("Neural") || v.name.includes("Natural")) && v.lang.startsWith("en")) ??
-          voices.find(v => v.lang === "en-AU") ??
-          voices.find(v => v.lang === "en-GB") ??
-          voices.find(v => v.lang.startsWith("en")) ??
-          null
+          voices.find(v => v.lang.startsWith("en")) ?? null
       }
       pickVoice()
       window.speechSynthesis.onvoiceschanged = pickVoice
     }
   }, [])
 
-  // Auto-start AI
+  // Auto-start AI session
   useEffect(() => {
     if (started.current) return
     started.current = true
@@ -179,20 +165,87 @@ export default function StudyChat({
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
-  // Speak a chunk of plain text (queued — multiple calls play in order)
-  function speakChunk(text: string) {
-    if (!voiceRef.current || !synthRef.current) return
-    const clean = stripForSpeech(text).trim()
-    if (!clean) return
-    const utter = new SpeechSynthesisUtterance(clean)
-    utter.rate = 0.87   // slightly slower than default — more comfortable for learning
-    utter.pitch = 1
-    utter.volume = 1
-    if (voiceObjRef.current) utter.voice = voiceObjRef.current
-    synthRef.current.speak(utter)   // queues behind any already-playing utterance
+  // ── TTS: fetch from OpenAI API and play, with Web Speech fallback ──
+
+  function stopSpeaking() {
+    ttsQueueRef.current = []
+    fetchAbortRef.current?.abort()
+    fetchAbortRef.current = null
+    if (currentAudioRef.current) {
+      currentAudioRef.current.pause()
+      currentAudioRef.current.src = ""
+      currentAudioRef.current = null
+    }
+    synthRef.current?.cancel()
+    // Don't reset ttsRunningRef here — let drainTtsQueue manage it
   }
 
-  function stopSpeaking() { synthRef.current?.cancel() }
+  function enqueueSpeech(text: string) {
+    if (!voiceRef.current) return
+    const clean = stripForSpeech(text).trim()
+    if (!clean || clean.length < 3) return
+    ttsQueueRef.current.push(clean)
+    if (!ttsRunningRef.current) drainTtsQueue()
+  }
+
+  async function drainTtsQueue() {
+    ttsRunningRef.current = true
+    while (ttsQueueRef.current.length > 0 && voiceRef.current) {
+      const text = ttsQueueRef.current.shift()!
+      await speakOneChunk(text)
+    }
+    ttsRunningRef.current = false
+  }
+
+  async function speakOneChunk(text: string) {
+    // Try OpenAI TTS first
+    const abort = new AbortController()
+    fetchAbortRef.current = abort
+    try {
+      const res = await fetch("/api/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+        signal: abort.signal,
+      })
+
+      if (res.ok) {
+        const blob = await res.blob()
+        if (!voiceRef.current) return
+        const url = URL.createObjectURL(blob)
+        await new Promise<void>(resolve => {
+          const audio = new Audio(url)
+          currentAudioRef.current = audio
+          const done = () => {
+            try { URL.revokeObjectURL(url) } catch {}
+            currentAudioRef.current = null
+            resolve()
+          }
+          audio.onended = done
+          audio.onerror = done
+          audio.play().catch(done)
+        })
+        return
+      }
+      // API unavailable (503 = no key configured) — fall through to Web Speech
+    } catch (e: unknown) {
+      if ((e as { name?: string })?.name === "AbortError") return
+      // Network error — fall through to Web Speech
+    }
+
+    // Web Speech fallback
+    if (synthRef.current && voiceRef.current) {
+      await new Promise<void>(resolve => {
+        const utter = new SpeechSynthesisUtterance(text)
+        utter.rate = 0.82
+        utter.pitch = 1
+        if (wsVoiceRef.current) utter.voice = wsVoiceRef.current
+        utter.onend = () => resolve()
+        utter.onerror = () => resolve()
+        synthRef.current!.speak(utter)
+      })
+    }
+  }
 
   function toggleVoice() {
     const next = !voiceRef.current
@@ -201,37 +254,38 @@ export default function StudyChat({
     if (!next) stopSpeaking()
   }
 
+  // ── Microphone (STT) ──
+
   async function toggleListening() {
     setMicError(null)
     if (isListening) {
       recognitionRef.current?.stop()
       return
     }
-
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const w = window as any
     if (!w.SpeechRecognition && !w.webkitSpeechRecognition) {
-      setMicError("Speech recognition isn't supported here. Please use Chrome or Edge.")
+      setMicError("Speech recognition isn't supported here — please use Chrome or Edge.")
       return
     }
 
-    // Check if microphone was previously blocked (gives a clearer message upfront)
+    // Check if already denied — avoids silent failure
     try {
       const perm = await navigator.permissions.query({ name: "microphone" as PermissionName })
       if (perm.state === "denied") {
-        setMicError("Microphone is blocked for this site. To fix in Chrome: click the icon at the very left of the address bar (it looks like a lock 🔒 or an info circle), then choose 'Site settings', find 'Microphone' and switch it to 'Allow'. Then reload the page.")
+        setMicError("Microphone is blocked for this site. In Chrome: click the small icon at the far-left of the address bar (looks like 🔒 or ⓘ), choose 'Site settings', then set Microphone to 'Allow' and reload.")
         return
       }
-    } catch { /* permissions API not supported — continue anyway */ }
+    } catch { /* permissions API not supported — continue */ }
 
-    // getUserMedia triggers the browser's native permission dialog on first use
+    // This triggers the browser's native 'Allow microphone' popup on first use
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      stream.getTracks().forEach(t => t.stop())  // permission granted — release the stream
+      stream.getTracks().forEach(t => t.stop())
     } catch (err: unknown) {
       const name = (err as { name?: string })?.name ?? ""
       if (name === "NotAllowedError" || name === "PermissionDeniedError") {
-        setMicError("Microphone blocked. In Chrome, click the icon at the far left of the address bar → 'Site settings' → set Microphone to 'Allow', then reload.")
+        setMicError("Microphone access denied. In Chrome: click the icon at the far-left of the address bar → 'Site settings' → Microphone → Allow → reload the page.")
       } else if (name === "NotFoundError") {
         setMicError("No microphone found. Please connect one and try again.")
       } else {
@@ -240,35 +294,32 @@ export default function StudyChat({
       return
     }
 
-    // Permission is now granted — start speech recognition
     const SR = w.SpeechRecognition || w.webkitSpeechRecognition
     const rec = new SR()
     rec.lang = "en-AU"
     rec.interimResults = false
     rec.maxAlternatives = 1
     recognitionRef.current = rec
-
     rec.onstart = () => setIsListening(true)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     rec.onresult = (e: any) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const transcript = Array.from(e.results as any[]).map((r: any) => r[0].transcript).join("")
-      setInput(transcript)
+      const t = Array.from(e.results as any[]).map((r: any) => r[0].transcript).join("")
+      setInput(t)
     }
     rec.onend = () => setIsListening(false)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     rec.onerror = (e: any) => {
       setIsListening(false)
-      if (e.error === "aborted") return  // normal when user clicks stop
+      if (e.error === "aborted") return
       if (e.error === "no-speech") setMicError("No speech detected — tap the mic and speak clearly.")
-      else if (e.error === "network") setMicError("Network error during speech recognition. Check your connection.")
-      else setMicError(`Mic error (${e.error}). Please try again.`)
+      else if (e.error === "network") setMicError("Network error during speech recognition.")
+      else setMicError(`Mic error: ${e.error}. Please try again.`)
     }
-
-    try { rec.start() } catch {
-      setMicError("Failed to start microphone. Please try again.")
-    }
+    try { rec.start() } catch { setMicError("Could not start microphone. Please try again.") }
   }
+
+  // ── AI streaming ──
 
   async function sendToAI(history: Msg[], userMsg?: Msg) {
     const newHistory = userMsg ? [...history, userMsg] : history
@@ -296,26 +347,21 @@ export default function StudyChat({
       const reader = res.body?.getReader()
       const decoder = new TextDecoder()
       let full = ""
-      let spokenIdx = 0  // chars already dispatched to TTS queue
+      let spokenIdx = 0
 
       if (reader) {
         while (true) {
           const { done, value } = await reader.read()
           if (done) {
-            // Speak any remaining text when stream ends
-            if (voiceRef.current && spokenIdx < full.length) {
-              speakChunk(full.slice(spokenIdx))
-            }
+            if (voiceRef.current && spokenIdx < full.length) enqueueSpeech(full.slice(spokenIdx))
             break
           }
           full += decoder.decode(value, { stream: true })
           setMessages(prev => { const u = [...prev]; u[u.length - 1] = { role: "assistant", content: full }; return u })
-
-          // Queue ALL complete sentences found so far — each as a separate utterance
-          // so TTS starts on the first sentence immediately, not after the full response
+          // Queue each complete sentence as it arrives
           if (voiceRef.current) {
             const { chunks, remainder } = extractSpeakable(full.slice(spokenIdx))
-            for (const chunk of chunks) speakChunk(chunk)
+            for (const chunk of chunks) enqueueSpeech(chunk)
             spokenIdx = full.length - remainder.length
           }
         }
@@ -350,18 +396,16 @@ export default function StudyChat({
         <p className="text-xs font-semibold truncate max-w-[140px]" style={{ color: "#475569" }}>{chapter}</p>
         <div className="flex items-center gap-2">
           <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: "#000936", color: "#FDC800" }}>{phase}</span>
-          {ttsSupported && (
-            <button
-              onClick={toggleVoice}
-              title={voiceEnabled ? "Voice ON — click to mute" : "Voice OFF — click to enable"}
-              className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg border transition-all"
-              style={voiceEnabled
-                ? { background: "#000936", borderColor: "#000936", color: "#FDC800" }
-                : { background: "white", borderColor: "#e2e8f0", color: "#94a3b8" }}
-            >
-              {voiceEnabled ? "🔊 Voice ON" : "🔇 Voice OFF"}
-            </button>
-          )}
+          <button
+            onClick={toggleVoice}
+            title={voiceEnabled ? "Voice ON — click to mute" : "Voice OFF — click to enable"}
+            className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg border transition-all"
+            style={voiceEnabled
+              ? { background: "#000936", borderColor: "#000936", color: "#FDC800" }
+              : { background: "white", borderColor: "#e2e8f0", color: "#94a3b8" }}
+          >
+            {voiceEnabled ? "🔊 Voice ON" : "🔇 Voice OFF"}
+          </button>
         </div>
       </div>
 
@@ -389,11 +433,7 @@ export default function StudyChat({
 
         {showTestButton && (
           <div className="flex justify-center py-2">
-            <button
-              onClick={onStartTest}
-              className="flex items-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm shadow-md transition-all hover:scale-105"
-              style={{ background: "#000936", color: "#FDC800" }}
-            >
+            <button onClick={onStartTest} className="flex items-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm shadow-md transition-all hover:scale-105" style={{ background: "#000936", color: "#FDC800" }}>
               🎯 Start Chapter Test
             </button>
           </div>
