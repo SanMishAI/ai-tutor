@@ -4,6 +4,12 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --brand-navy: #000936;
+  --brand-blue: #0066CB;
+  --brand-yellow: #FDC800;
+  --brand-orange: #E34C00;
+  --ink: #0B1533;
+  --ink-muted: #5A6B8C;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -25,4 +31,14 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+@keyframes dot-bounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+  40% { transform: translateY(-6px); opacity: 1; }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
 }

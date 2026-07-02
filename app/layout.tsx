@@ -1,9 +1,21 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Caveat } from "next/font/google";
+import { Plus_Jakarta_Sans, Inter, Geist, Geist_Mono, Caveat } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import "katex/dist/katex.min.css";
+
+const plusJakarta = Plus_Jakarta_Sans({
+  variable: "--font-jakarta",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+});
+
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+});
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -55,7 +67,7 @@ export default function RootLayout({
     <ClerkProvider>
       <html
         lang="en"
-        className={`${geistSans.variable} ${geistMono.variable} ${caveat.variable} h-full antialiased`}
+        className={`${plusJakarta.variable} ${inter.variable} ${geistSans.variable} ${geistMono.variable} ${caveat.variable} h-full antialiased`}
       >
         <body className="min-h-full flex flex-col">
           {children}
