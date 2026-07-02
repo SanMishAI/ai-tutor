@@ -27,8 +27,8 @@ function scoreMessage(score: number, total: number) {
   return { emoji: "🤔", text: "Tough one! But now you know more than before!" }
 }
 
-export default function BreakZone() {
-  const [open, setOpen] = useState(false)
+export default function BreakZone({ forceOpen = false }: { forceOpen?: boolean }) {
+  const [open, setOpen] = useState(forceOpen)
   const [phase, setPhase] = useState<"choose" | "loading" | "playing" | "answered" | "done">("choose")
   const [questions, setQuestions] = useState<TriviaQuestion[]>([])
   const [currentQ, setCurrentQ] = useState(0)

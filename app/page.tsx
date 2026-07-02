@@ -16,6 +16,7 @@ import StreakBadge from "./components/StreakBadge"
 import ArcadeMode from "./components/arcade/ArcadeMode"
 import StudyMode from "./components/study/StudyMode"
 import ChildLoginScreen from "./components/ChildLoginScreen"
+import StudentDashboard from "./components/StudentDashboard"
 import UpgradeModal from "./components/UpgradeModal"
 import GuestLimitModal from "./components/GuestLimitModal"
 import type { Message, Conversation } from "./types"
@@ -386,7 +387,7 @@ export default function Home() {
   const [activeId, setActiveId] = useState<string | null>(null)
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
-  const [mode, setMode] = useState<"chat" | "practice" | "exam" | "adventure" | "study">("study")
+  const [mode, setMode] = useState<"chat" | "practice" | "exam" | "adventure" | "study" | "break">("study")
   const [subject, setSubject] = useState(SUBJECTS[0])
   const [yearLevel, setYearLevel] = useState(YEAR_LEVELS[SUBJECTS[0]][0])
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -420,6 +421,8 @@ export default function Home() {
   // Child session
   const [childSession, setChildSession] = useState<ChildSession | null>(null)
   const [showChildLogin, setShowChildLogin] = useState(false)
+  const [showStudentDashboard, setShowStudentDashboard] = useState(false)
+  const prevSignedInRef = useRef<boolean | undefined>(undefined)
 
   // Usage tracking
   const GUEST_DAILY_LIMIT = 10
@@ -494,14 +497,14 @@ export default function Home() {
     saveChildSession(session)
     setChildSession(session)
     setShowChildLogin(false)
-    setSplashDone(true)
-    setIntroSeen(true)
-    localStorage.setItem("selected_intro_seen", "1")
+    setShowStudentDashboard(true)
+    // splashDone stays false until student taps "Start Studying" on dashboard
   }
 
   function handleChildLogout() {
     clearChildSession()
     setChildSession(null)
+    setShowStudentDashboard(false)
     setSplashDone(false)
     setIntroSeen(false)
     localStorage.removeItem("selected_intro_seen")
@@ -600,6 +603,17 @@ export default function Home() {
     }
   }, [isSignedIn])
 
+  // Detect parent sign-out via Clerk and reset to landing page
+  useEffect(() => {
+    if (isSignedIn === undefined) return
+    if (prevSignedInRef.current === true && isSignedIn === false && !childSession) {
+      setSplashDone(false)
+      setIntroSeen(false)
+      localStorage.removeItem("selected_intro_seen")
+    }
+    prevSignedInRef.current = isSignedIn
+  }, [isSignedIn, childSession])
+
   // Persist to localStorage when guest
   useEffect(() => {
     if (!isSignedIn && conversations.length > 0) {
@@ -687,7 +701,7 @@ export default function Home() {
           subject,
           yearLevel,
           messages: msgs,
-          mode: (mode === "exam" || mode === "adventure" || mode === "study") ? "chat" : mode,
+          mode: (mode === "exam" || mode === "adventure" || mode === "study" || mode === "break") ? "chat" : mode,
           createdAt: new Date().toISOString(),
         }
         updated = [...prev, newConv]
@@ -777,7 +791,7 @@ export default function Home() {
     setLoading(false)
   }
 
-  function handleModeChange(newMode: "chat" | "practice" | "exam" | "adventure" | "study") {
+  function handleModeChange(newMode: "chat" | "practice" | "exam" | "adventure" | "study" | "break") {
     if ((newMode === "exam" || newMode === "adventure" || newMode === "study") && !checkPremiumFeature(newMode === "exam" ? "Exam Mode" : newMode === "adventure" ? "Adventure Mode" : "Study Mode")) return
     setMode(newMode)
     setAttemptCount(0)
@@ -794,6 +808,24 @@ export default function Home() {
         parentId={storedParentId}
         onLogin={handleChildLogin}
         onBack={() => setShowChildLogin(false)}
+      />
+    )
+  }
+
+  // Student dashboard (shown right after child login, before entering the app)
+  if (showStudentDashboard && childSession) {
+    return (
+      <StudentDashboard
+        childName={childSession.name}
+        avatarEmoji={childSession.avatarEmoji}
+        token={childSession.token}
+        onStartStudying={() => {
+          setShowStudentDashboard(false)
+          setSplashDone(true)
+          setIntroSeen(true)
+          localStorage.setItem("selected_intro_seen", "1")
+        }}
+        onLogout={handleChildLogout}
       />
     )
   }
@@ -891,7 +923,7 @@ export default function Home() {
               <a href="/pricing" className="font-bold px-3 py-1.5 rounded-lg transition-all hover:opacity-90 shadow-sm" style={{ background: "#FDC800", color: "#000936" }}>Pricing</a>
               {isSignedIn && <a href="/parent" className="font-medium hover:text-slate-900 transition-colors" style={{ color: "#64748b" }}>Parent dashboard</a>}
             </div>
-            <div className="flex items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-2">
               <button onClick={() => setShowChildLogin(true)}
                 className="hidden sm:block text-sm font-semibold px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
                 style={{ color: "#475569" }}>
@@ -901,7 +933,7 @@ export default function Home() {
                 <>
                   <UserButton />
                   <button onClick={() => setSplashDone(true)}
-                    className="text-sm font-bold px-4 py-2 rounded-lg transition-all hover:opacity-90"
+                    className="text-sm font-bold px-3 sm:px-4 py-2 rounded-lg transition-all hover:opacity-90 whitespace-nowrap"
                     style={{ background: "#000936", color: "#FDC800" }}>
                     Open app →
                   </button>
@@ -909,13 +941,13 @@ export default function Home() {
               ) : (
                 <>
                   <SignInButton mode="modal">
-                    <button className="text-sm font-bold px-4 py-2 rounded-lg border-2 transition-all hover:bg-[#0066CB] hover:text-white hover:shadow-md"
+                    <button className="hidden sm:block text-sm font-bold px-3 py-2 rounded-lg border-2 transition-all hover:bg-[#0066CB] hover:text-white"
                       style={{ borderColor: "#0066CB", color: "#0066CB", background: "rgba(0,102,203,0.04)" }}>
-                      Sign in →
+                      Sign in
                     </button>
                   </SignInButton>
                   <button onClick={() => setShowStartChoice(true)}
-                    className="text-sm font-bold px-4 py-2 rounded-lg transition-all hover:opacity-90 shadow-sm"
+                    className="text-sm font-bold px-3 sm:px-4 py-2 rounded-lg transition-all hover:opacity-90 shadow-sm whitespace-nowrap"
                     style={{ background: "#000936", color: "#FDC800" }}>
                     Get started →
                   </button>
@@ -1933,25 +1965,32 @@ export default function Home() {
             <div>
               <label className="block text-xs font-semibold text-slate-400 mb-1">Mode</label>
               <div className="flex flex-wrap gap-1 rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                {(["chat", "practice", "exam", "adventure", "study"] as const).map((m) => (
+                {(["chat", "practice", "exam", "adventure", "study", "break"] as const).map((m) => (
                   <button
                     key={m}
                     onClick={() => handleModeChange(m)}
                     className="flex-1 px-2 py-2 text-xs font-semibold transition-all whitespace-nowrap"
                     style={mode === m ? {
-                      background: m === "adventure" ? "#14532d" : m === "study" ? "#1e40af" : "#000936",
-                      color: m === "adventure" ? "#86efac" : m === "study" ? "#bfdbfe" : "#FDC800",
+                      background: m === "adventure" ? "#14532d" : m === "study" ? "#1e40af" : m === "break" ? "#4c1d95" : "#000936",
+                      color: m === "adventure" ? "#86efac" : m === "study" ? "#bfdbfe" : m === "break" ? "#ddd6fe" : "#FDC800",
                     } : {
                       background: "white",
                       color: "#64748b",
                     }}
                   >
-                    {m === "chat" ? "💬 Chat" : m === "practice" ? "📝 Practice" : m === "exam" ? "⏱️ Exam" : m === "adventure" ? "⛏️ Adventure" : "📖 Study"}
+                    {m === "chat" ? "💬 Chat" : m === "practice" ? "📝 Practice" : m === "exam" ? "⏱️ Exam" : m === "adventure" ? "⛏️ Adventure" : m === "study" ? "📖 Study" : "🎮 Break"}
                   </button>
                 ))}
               </div>
             </div>
           </div>
+
+          {/* Brain Break trivia */}
+          {mode === "break" && (
+            <div className="flex-1 overflow-y-auto p-4 rounded-2xl" style={{ background: "#0f0c29" }}>
+              <BreakZone forceOpen />
+            </div>
+          )}
 
           {/* Adventure mode */}
           {mode === "adventure" && (
@@ -1990,7 +2029,7 @@ export default function Home() {
           )}
 
           {/* Chat / Practice window */}
-          {mode !== "exam" && mode !== "adventure" && (
+          {mode !== "exam" && mode !== "adventure" && mode !== "break" && mode !== "study" && (
             <div
               className="flex-1 overflow-y-auto rounded-2xl shadow-sm"
               style={mode === "chat" ? {
