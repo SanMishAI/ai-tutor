@@ -16,6 +16,22 @@ interface Mode {
 
 const modes: Mode[] = [
   {
+    id: "study",
+    label: "📖 Study",
+    title: "Structured Study Mode",
+    description:
+      "The heart of SelectEd. A full 4-phase learning system: Theory → Worked Examples → Practice → Chapter Test. Your child builds real understanding chapter by chapter, not just drills questions.",
+    benefits: [
+      "Chapter-by-chapter curriculum per exam",
+      "Theory → Examples → Practice → Test flow",
+      "80% gate before the next chapter unlocks",
+      "Points, levels, and progress dashboard",
+    ],
+    color: "#7C3AED",
+    bg: "#F5F3FF",
+    premium: true,
+  },
+  {
     id: "chat",
     label: "💬 Chat",
     title: "AI Chat Tutor",
@@ -119,7 +135,7 @@ export default function ModesTabs() {
             className="text-3xl sm:text-4xl font-extrabold"
             style={{ fontFamily: "var(--font-jakarta)", color: "#0B1533" }}
           >
-            Four ways to learn
+            Five ways to learn
           </h2>
         </div>
 
