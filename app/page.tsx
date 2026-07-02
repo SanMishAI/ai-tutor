@@ -2107,7 +2107,7 @@ export default function Home() {
                     <div className="flex flex-col items-center justify-center h-full text-center py-16 gap-3">
                       <span className="text-5xl">📝</span>
                       <p className="text-sm max-w-xs" style={{ color: "#94a3b8" }}>
-                        Click &quot;Get Practice Problem&quot; to receive a question for {subject.split(" ")[0]}.
+                        Click &quot;Get Practice Problem&quot; to receive a question for {subject.match(/\(([^)]+)\)/)?.[1] ?? subject.split(" ")[0]}.
                       </p>
                     </div>
                   )}

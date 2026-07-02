@@ -45,7 +45,9 @@ function latexToSpeech(expr: string): string {
 
 function stripForSpeech(text: string): string {
   return text
+    // Remove SVGs
     .replace(/<svg[\s\S]*?<\/svg>/gi, "")
+    // Math → spoken form
     .replace(/\$\$([\s\S]*?)\$\$/g, (_, expr) => {
       const s = latexToSpeech(expr)
       return s && s.length < 80 ? `. ${s}.` : ". "
@@ -56,18 +58,40 @@ function stripForSpeech(text: string): string {
       return s && s.length < 50 ? ` ${s} ` : " "
     })
     .replace(/\$/g, "")
+    // All emojis
     .replace(/\p{Extended_Pictographic}/gu, "")
+    // Unicode box/line-drawing chars (━ ─ │ ╔ etc.) → silence
+    .replace(/[─-▟■-◿]/g, " ")
+    // Horizontal rules (--- *** === ───) → silence
+    .replace(/^[-*=─━]{2,}\s*$/gm, "")
+    // Markdown bold/italic (must run before stripping bare *)
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .replace(/\*([^*]+)\*/g, "$1")
-    .replace(/#{1,6}\s+/g, "")
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .replace(/`[^`]+`/g, "")
     .replace(/_{1,2}([^_]+)_{1,2}/g, "$1")
-    .replace(/^\s*[-*•]\s+/gm, ". ")
+    // Remaining stray * _ ~ (e.g. unclosed markers)
+    .replace(/[*_~]+/g, " ")
+    // Headings
+    .replace(/#{1,6}\s+/g, "")
+    // Markdown links → text only
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    // Square brackets (e.g. [PRACTICE Q1/5], [Concept Name]) → content only
+    .replace(/\[([^\]]*)\]/g, "$1")
+    // Inline code
+    .replace(/`[^`]+`/g, "")
+    // Parenthetical instructions like "(Type A, B, C, or D)"
+    .replace(/\(Type [A-D][^)]*\)/gi, "")
+    // Bullets → short pause
+    .replace(/^\s*[-•]\s+/gm, " ")
+    // Numbered list markers (1. 2.) at line start → remove
+    .replace(/^\s*\d+\.\s+/gm, " ")
+    // Ellipsis → single pause
+    .replace(/\.{2,}/g, ".")
+    // Em/en dash → comma pause
+    .replace(/[—–]/g, ", ")
+    // Clean up whitespace
     .replace(/\n{2,}/g, ". ")
-    .replace(/\n/g, ", ")
+    .replace(/\n/g, " ")
     .replace(/\s{2,}/g, " ")
-    .replace(/[.]{2,}/g, ".")
     .trim()
 }
 
@@ -269,27 +293,16 @@ export default function StudyChat({
       return
     }
 
-    // Check if already denied — avoids silent failure
-    try {
-      const perm = await navigator.permissions.query({ name: "microphone" as PermissionName })
-      if (perm.state === "denied") {
-        setMicError("Microphone is blocked for this site. In Chrome: click the small icon at the far-left of the address bar (looks like 🔒 or ⓘ), choose 'Site settings', then set Microphone to 'Allow' and reload.")
-        return
-      }
-    } catch { /* permissions API not supported — continue */ }
-
-    // This triggers the browser's native 'Allow microphone' popup on first use
+    // Ask for mic access — triggers the browser's native Allow popup on first use
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       stream.getTracks().forEach(t => t.stop())
     } catch (err: unknown) {
       const name = (err as { name?: string })?.name ?? ""
-      if (name === "NotAllowedError" || name === "PermissionDeniedError") {
-        setMicError("Microphone access denied. In Chrome: click the icon at the far-left of the address bar → 'Site settings' → Microphone → Allow → reload the page.")
-      } else if (name === "NotFoundError") {
+      if (name === "NotFoundError") {
         setMicError("No microphone found. Please connect one and try again.")
       } else {
-        setMicError("Could not access microphone. Check your browser settings.")
+        setMicError("Microphone access denied. In Chrome, tap the icon at the left of the address bar → Site settings → Microphone → Allow → reload.")
       }
       return
     }
